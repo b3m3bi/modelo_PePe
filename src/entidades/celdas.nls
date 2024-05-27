@@ -1,0 +1,11 @@
+patches-own [ 
+  tipo                     ;; string: espacio fisico que representa la celda: "mar", "tierra", "puerto"
+  num_region               ;; number: identificador del la región de pesca a la que pertence la celda
+]
+
+
+to init_celda
+  set tipo "NA"
+  set num_region -9999
+  
+end

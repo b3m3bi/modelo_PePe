@@ -1,0 +1,582 @@
+breed [ embarcaciones embarcacion ]
+directed-link-breed [ amistades amistad ]
+
+embarcaciones-own [
+  mi_puerto                        ;; agent (puerto): el agente puerto que representa el puerto donde embarco y descargo
+  region_pesca                     ;; number: número de la región en la que la embarcación pesca
+  tiempo_restante_iteracion        ;; number: contador del tiempo de la iteración que le queda a la embarcacion para hacer actividades
+  estado                           ;; string: descripción del estado de actividad de la embarcación ("descansando", "planeando", "moviendose", "pescando", "desembarcando")
+  tiempo_descansado                ;; number: contador del tiempo que la embaración ha descansado
+  tipo_planeacion                  ;; string: el tipo de planeación de viaje que debe hacer la embarcación ("inicio", "continuar", "regreso")  
+  destino                          ;; patch: celda a la que me dirijo
+  posibles_sitios_pesca            ;; agentset (patches): conjunto de celdas donde una embarcacion puede pescar
+  mejor_sitio                      ;; patch: celda que me ha dado una alta ganancia en ocaciones previas. Usado por algoritmo EEI.
+  sitios_visitados                 ;; list (patches): celdas en las que una embarcación pescó durante un viaje
+  ruta                             ;; list (patches): lista ordenada de las celdas que debo seguir para llegar a mi destino
+  indice_actual_ruta               ;; number: índice dentro de la lista de ruta de la celda donde estoy actualmente
+  capturas_viaje                   ;; list (list (number)): registra las capturas de cada especie en cada sitio visitado
+  viajes_finalizados               ;; number: registra el número de viajes completados que ha realizado una embarcación
+  distancia_recorrida              ;; number: distancia recorrida por una embarcación en un viaje
+  distancia_recorrida_ultimo_viaje ;; number: registra la ditancia que la embarcación recorrió durante el último viaje completado
+  horas_en_mar                     ;; number: número de horas que la embarcación lleva en el mar durante un viaje
+  horas_en_mar_ultimo_viaje        ;; number: registra el número de horas que la embarcación estuvo en el mar durante el último viaje completado
+  captura_ultimo_viaje             ;; number: registra la captura que la embarcación obtuvo durante el último viaje completado
+  ganancia                         ;; number: registra la ganancia obtenida por la embarcación
+  ganancia_por_hora                ;; number: ganancia por hora de viaje  
+  ganancia_por_hora_ultimo_viaje   ;; number: registra la ganancia obtenida por la embarcación durante su ultimo viaje
+  saldo_subsidio_gasolina          ;; number: saldo disponible para un pescador para pagar la gasolina
+  gasto_gasolina                   ;; number: gasto de gasolina de un pescador por viaje
+  ingreso_venta_captura            ;; number: ingreso de la venta de la captura de un pescador por viaje
+  artes_pesca                      ;; string: especie(s) que pesca una embarcacion
+  capturabilidad                   ;; number: porcentaje de la biomasa disponible en una celda que pesca una embarcación cuando despliega sus artes de pesca
+  capacidad_maxima                 ;; number: capacidad de carga de biomasa máxima que tiene una embarcación
+  dias_maximos_en_mar              ;; number: número máximo de días que una embarcación pasa en el mar
+  ganancia_mensual                 ;; number: registra la ganancia mensual que genera la embarcación
+  salario_mensual_tripulacion      ;; number: registra el salario mensual que recibe la tripulación 
+  tamanio_tripulacion              ;; number: tamaño promedio de la tripulación de la embarcación
+  estado_economico                 ;; string: describe la viabilidad económica de la embarcación ("viable", "crisis", "quiebra")
+  activo?                          ;; boolean: indica si una embarcación está activa o no
+  meses_crisis                     ;; number: indica cuantos meses lleva una embarcación en estado de crisis
+]
+
+
+to init_embarcacion [_puerto _reg_pesca]
+  set mi_puerto _puerto
+  set region_pesca _reg_pesca
+  set tiempo_restante_iteracion horas_iteracion
+  set estado "descansando"
+  set tiempo_descansado HORAS_DESCANSAR
+  set tipo_planeacion ""
+  set destino nobody
+  set posibles_sitios_pesca celdas_libre with [num_region = [region_pesca] of myself]
+  set mejor_sitio one-of posibles_sitios_pesca
+  set sitios_visitados []
+  set ruta []
+  set indice_actual_ruta 0
+  set capturas_viaje []
+  set viajes_finalizados 0
+  set distancia_recorrida 0
+  set distancia_recorrida_ultimo_viaje 0
+  set horas_en_mar 0
+  set horas_en_mar_ultimo_viaje 0 
+  set captura_ultimo_viaje 0
+  set ganancia 0
+  set ganancia_por_hora 0
+  set ganancia_por_hora_ultimo_viaje 0
+  set saldo_subsidio_gasolina 0
+  set gasto_gasolina 0
+  set ingreso_venta_captura 0 
+  (ifelse 
+    [num_puerto] of mi_puerto = 0 [
+      set capturabilidad CAPTURABILIDAD_PUERTO_1
+      set capacidad_maxima CAPACIDAD_MAXIMA_PUERTO_1
+      set artes_pesca ARTES_PESCA_PUERTO_1
+      set dias_maximos_en_mar DIAS_MAXIMOS_EN_MAR_PUERTO_1
+      set tamanio_tripulacion (item 0 read-from-string TRIPULANTES_POR_EMBARCACION)
+    ]
+    [num_puerto] of mi_puerto = 1 [
+      set capturabilidad CAPTURABILIDAD_PUERTO_2
+      set capacidad_maxima CAPACIDAD_MAXIMA_PUERTO_2
+      set artes_pesca ARTES_PESCA_PUERTO_2
+      set dias_maximos_en_mar DIAS_MAXIMOS_EN_MAR_PUERTO_2
+      set tamanio_tripulacion (item 1 read-from-string TRIPULANTES_POR_EMBARCACION)
+    ]
+    [num_puerto] of mi_puerto = 2 [
+      set capturabilidad CAPTURABILIDAD_PUERTO_3
+      set capacidad_maxima CAPACIDAD_MAXIMA_PUERTO_3
+      set artes_pesca ARTES_PESCA_PUERTO_3
+      set dias_maximos_en_mar DIAS_MAXIMOS_EN_MAR_PUERTO_3
+      set tamanio_tripulacion (item 2 read-from-string TRIPULANTES_POR_EMBARCACION)
+    ])
+  set ganancia_mensual 0
+  set salario_mensual_tripulacion 7000
+  set estado_economico "viable"
+  set activo? true
+  set meses_crisis 0
+  
+  set shape "barco viable" 
+  set color item ([num_puerto] of mi_puerto) colores_puertos_embarcaciones
+  move-to mi_puerto 
+end
+
+to init_embarcaciones
+  
+  let nums_embarcaciones (list NUM_EMBARCACIONES_PUERTO_1 NUM_EMBARCACIONES_PUERTO_2 NUM_EMBARCACIONES_PUERTO_3)
+  let regs_pesca (list REGION_PESCA_EMBARCACIONES_PUERTO_1 REGION_PESCA_EMBARCACIONES_PUERTO_2 REGION_PESCA_EMBARCACIONES_PUERTO_3) 
+  foreach (range NUM_PUERTOS) [
+    i -> 
+    ask puerto i [
+      hatch-embarcaciones (item i nums_embarcaciones) [
+        init_embarcacion myself (item i regs_pesca)
+      ]
+    ]
+  ]
+  
+  ;; se crea la red de amistades
+  ask embarcaciones [
+    let embarcaciones_mi_puerto embarcaciones with [mi_puerto = [mi_puerto] of myself]
+    ifelse count embarcaciones_mi_puerto > NUM_AMIGOS [
+      create-amistades-to (n-of NUM_AMIGOS other embarcaciones_mi_puerto) [ hide-link ]
+    ][
+      print (word "Advertencia: No hay suficientes embarcaciones en el puerto " [num_puerto] of mi_puerto " para formar NUM_AMIGOS = " NUM_AMIGOS " amistades. No se creará ninguna amistad para las embarcaciones de este puerto." )
+    ]
+  ]
+end
+
+to init_registros_mensuales_embarcaciones
+  ask embarcaciones [
+    set ganancia_mensual 0
+    set salario_mensual_tripulacion 0
+  ]
+end
+  
+to dinamica_iteracion_embarcacion
+  set tiempo_restante_iteracion horas_iteracion
+  ejecutar_estado    
+end
+
+
+to ejecutar_estado
+  if tiempo_restante_iteracion > 0 and activo? [
+    (ifelse 
+      estado = "descansando"   [ descansar ]
+      estado = "planeando"     [ planear ]
+      estado = "moviendose"    [ moverse ]
+      estado = "pescando"      [ pescar ]
+      estado = "desembarcando" [ desembarcar ]
+    )
+    ejecutar_estado
+  ]
+end
+
+to descansar
+  ifelse tiempo_descansado < HORAS_DESCANSAR or hay_veda [
+    ;; falta descansar... se descansa una unidad de tiempo
+    set tiempo_descansado tiempo_descansado + 1
+    set tiempo_restante_iteracion tiempo_restante_iteracion - 1
+  ][
+    ;; ya descansé suficiente... planeo mi viaje
+    set estado "planeando"
+    set tipo_planeacion "inicio"
+  ]
+end
+
+to planear
+  (ifelse 
+    tipo_planeacion = "inicio" [
+      set posibles_sitios_pesca celdas_libre with [num_region = [region_pesca] of myself]
+      set destino seleccionar_sitio_pesca
+    ]
+    tipo_planeacion = "continuar" and CAMBIAR_SITIO_PESCA? [ 
+      (ifelse 
+        SELELECCION_SITIO_PESCA_CONTINUACION = "EEI" [
+          set destino seleccionar_sitio_pesca
+        ]
+        SELELECCION_SITIO_PESCA_CONTINUACION = "mejor vecino" [
+          set destino seleccionar_mejor_sitio_vecino
+        ]
+         SELELECCION_SITIO_PESCA_CONTINUACION = "un vecino" [
+          set destino one-of [([posibles_sitios_pesca] of myself) at-points (vecindad_moore RADIO_EXPLORAR false)] of patch-here
+          if destino = nobody [ show "Estoy perdido" ]
+;          set destino one-of neighbors with [ tipo = "mar" ]
+        ]
+        SELELECCION_SITIO_PESCA_CONTINUACION = "vecino cerano no visitado" [
+;          let sitio_donde_estoy (patch-set patch-here) 
+;          set posibles_sitios_pesca posibles_sitios_pesca with [ not member? self sitio_donde_estoy] 
+;          ;      ask patches with [ num_region = [region_pesca] of myself ] with [ not member? self [posibles_sitios_pesca] of myself]
+;          ;      [ set pcolor yellow ]
+;          ;      display
+;          set destino nobody
+;          set destino min-one-of posibles_sitios_pesca [distance myself]
+;          
+;          if destino = nobody [
+;            ;; en caso de que no haya ningún sitio que no haya visitado antes se reinicia la planeación 
+;            show "No hay sitios de pesca posibles que no haya visitado ya en este viaje. Se selecciona como si fuera el inicio"
+;            set tipo_planeacion "inicio"
+;            stop
+;          ]
+      ])
+    ]
+    tipo_planeacion = "regreso" [ 
+      set destino [patch-here] of mi_puerto
+  ])
+  
+  ;; se calcula la ruta al destino elegido
+  set ruta (obtener_ruta_A_star patch-here destino)
+  
+  set indice_actual_ruta 0
+  
+  set estado "moviendose"
+end
+
+to-report seleccionar_sitio_pesca
+  (ifelse
+    SELECCION_SITIO_PESCA = "EEI"       [ report seleccionar_sitio_EEI ]
+    SELECCION_SITIO_PESCA = "aleatorio" [ report seleccionar_sitio_aleatorio ]
+  )
+end
+
+to-report seleccionar_sitio_EEI
+  ;; se actoan los sitios pesca a solo los vecinos en un radio del mejor sitio
+  let _posibles_sitios_pesca [([posibles_sitios_pesca] of myself) at-points (vecindad_moore RADIO_EXPLORAR true)] of mejor_sitio
+;  let _posibles_sitios_pesca posibles_sitios_pesca
+  
+  ifelse random-float 1.0 < EPSILON [
+    ;; explorar
+    report one-of _posibles_sitios_pesca
+  ][
+    ifelse any? out-amistad-neighbors [
+      ;; imitar
+      let amigo_mas_exitoso max-one-of out-amistad-neighbors [ganancia_por_hora]
+      ifelse [ganancia_por_hora] of amigo_mas_exitoso > ganancia_por_hora [
+        report [mejor_sitio] of amigo_mas_exitoso
+      ][
+        ;; explotar
+        report mejor_sitio
+      ]
+    ][
+      ;; explotar
+      report mejor_sitio
+    ]
+  ]  
+end
+
+to-report seleccionar_mejor_sitio_vecino
+  report max-one-of (posibles_sitios_pesca at-points (vecindad_moore 1 true)) [sum biomasas]
+end
+
+to-report seleccionar_sitio_aleatorio
+  report one-of posibles_sitios_pesca
+end
+
+
+to moverse
+  ifelse patch-here = destino [
+    ;; ya llegué a mi destino
+    ifelse destino = [patch-here] of mi_puerto 
+    [ set estado "desembarcando" ]
+    [ set estado "pescando" ]
+  ][
+    ;; avanzo una unidad de velocidad hacia mi destino
+    let tamanio_paso VELOCIDAD / longitud_celda
+    let distancia_avanzada 0
+
+    while [ distancia_avanzada < tamanio_paso ] [
+      let siguiente_celda (item indice_actual_ruta ruta)
+      face siguiente_celda
+      let distancia_avanzo min (list (tamanio_paso - distancia_avanzada) (distance siguiente_celda))
+      jump distancia_avanzo
+
+      set distancia_avanzada distancia_avanzada + distancia_avanzo
+      set distancia_recorrida distancia_recorrida + distancia_avanzo
+
+      ;; reviso si ya llegué al centro o no de la siguiente celda
+      if distance siguiente_celda = 0 [
+        ;; si ya llegué cambio de indice y registro la distancia recorrida
+        set indice_actual_ruta indice_actual_ruta + 1
+        ; visualización
+;        if VISUALIZAR_PROCESOS_PESCADOR? [
+;          if not member? patch-here sitios_visitados [
+;            set pcolor yellow
+;            display
+;          ]
+;        ]
+;        ;; registro que pasó un pescador
+;        set contador_presencia contador_presencia + 1
+        ;; puede que llegue al destino y me hayan sobrado pasos, por lo que me detengo
+        if patch-here = destino [ stop ]
+      ]
+    ]
+    set horas_en_mar horas_en_mar + 1
+    set tiempo_restante_iteracion tiempo_restante_iteracion - 1
+  ]
+end
+
+
+to pescar
+  ;; pesco...
+  revisar_arte_pesca_corresponde_a_num_especies
+  ;; cuando se pesca de manera indistinta a las especies, entonces la capturabilidad se calcula con respecto a
+  ;; su proporción en el parche, en caso de que no, toda la capturabilidad se calcula solo con la especie capturada
+  let proporcion_spp_pescables_en_sitio n-values _num_especies [0]
+  (ifelse
+    artes_pesca = "ESPECIE 1 y ESPECIE 2 y ESPECIE 3" [
+      ;; la capturabilidad se calcula con respecto a la proporción en que estan las especies pescables en el parche
+      ;; solo si si hay algo que pescar, sino la capturabilidad es cero...
+      if sum biomasas > 0 [
+        set proporcion_spp_pescables_en_sitio (map [ b -> b / (sum biomasas)] biomasas)
+      ]
+    ]
+    ;; la capturabilidad se calcula solo con la especie que se pesca...
+    artes_pesca = "ESPECIE 1" [
+      set proporcion_spp_pescables_en_sitio replace-item 0 proporcion_spp_pescables_en_sitio 1
+    ]
+    artes_pesca = "ESPECIE 2" [
+      set proporcion_spp_pescables_en_sitio replace-item 1 proporcion_spp_pescables_en_sitio 1
+  ]
+    artes_pesca = "ESPECIE 3" [
+      set proporcion_spp_pescables_en_sitio replace-item 2 proporcion_spp_pescables_en_sitio 1
+  ])
+
+  let capturabilidades_sitio (map [ p -> p * CAPTURABILIDAD] proporcion_spp_pescables_en_sitio)
+  let capturas_sitio (map [[b c] -> b * c] biomasas capturabilidades_sitio)
+  set biomasas (map [[b c] -> b - c] biomasas capturas_sitio)
+
+  ;; mortalidad tortugas
+  if any? tortugas-here and random-float 1.0 < PROB_MORTALIDAD_TORTUGA_POR_PESCA [
+    ask one-of tortugas-here [ die ]
+  ]
+
+  set capturas_viaje lput capturas_sitio capturas_viaje
+
+  ;; consumo tiempo...
+  set horas_en_mar horas_en_mar + 1
+  set tiempo_restante_iteracion tiempo_restante_iteracion - 1
+
+  set sitios_visitados lput patch-here sitios_visitados
+
+;  set contador_pesca contador_pesca + 1
+
+;  ;; visualizacion
+;  if VISUALIZAR_PROCESOS_PESCADOR? [
+;    set pcolor magenta
+;    display
+;  ]
+
+  ;; decido qué pasa después
+  ifelse obtener_captura_total_viaje >= CAPACIDAD_MAXIMA [
+    ;; ya se llenó el barco...
+    ;; regreso el extra considerando solo la proporción de la última captura
+    let cantidad_regresar obtener_captura_total_viaje - CAPACIDAD_MAXIMA
+    let ultimas_capturas last capturas_viaje
+    let proporcion_regresar (cantidad_regresar / (sum ultimas_capturas))
+    let biomasas_regresar (map [ b -> b * proporcion_regresar] ultimas_capturas)
+
+    let ultimas_capturas_actualizadas (map [ [a b] ->  a - b ] ultimas_capturas biomasas_regresar)
+    set capturas_viaje replace-item ((length capturas_viaje) - 1) capturas_viaje ultimas_capturas_actualizadas
+    set biomasas (map [[a b] -> a + b] biomasas biomasas_regresar)
+
+    set estado "planeando"
+    set tipo_planeacion "regreso"
+  ][
+    ifelse (horas_en_mar / 24) > dias_maximos_en_mar [
+      ;; ya estuve mucho tiempo en el mar... planea el regreso
+      set estado "planeando"
+      set tipo_planeacion "regreso"
+    ][
+      ;; planea la siguiente pesca...
+      set estado "planeando"
+      set tipo_planeacion "continuar"
+    ]
+  ]
+end
+
+to revisar_arte_pesca_corresponde_a_num_especies
+  (ifelse
+    _num_especies = 1 and (ARTES_PESCA = "ESPECIE 2" or ARTES_PESCA = "ESPECIE 3") [
+      print "Advertencia: Solo hay una especie, el parámetro ARTES_PESCA no puede tomar el valor ESPECIE 2 o ESPECIE 3. Se asignará de forma automáticamente el valor TODAS."
+      set ARTES_PESCA "TODAS"
+    ]
+    _num_especies = 2 and (ARTES_PESCA = "ESPECIE 3") [
+      print "Advertencia: Solo hay dos especies, el parámetro ARTES_PESCA no puede tomar el valor ESPECIE 3. Se asignará de forma automáticamente el valor TODAS."
+      set ARTES_PESCA "TODAS"
+    ])
+end
+
+to-report obtener_captura_total_viaje
+  report sum (map [c -> sum c] capturas_viaje)
+end
+
+to desembarcar
+  
+  set viajes_finalizados viajes_finalizados + 1
+
+  set horas_en_mar_ultimo_viaje horas_en_mar
+  set distancia_recorrida_ultimo_viaje distancia_recorrida
+
+  ;; se registra la captura y se calcula la ganancia
+  set captura_ultimo_viaje obtener_captura_total_viaje
+  set ganancia obtener_balance_pesca
+  set ganancia_por_hora (ganancia / horas_en_mar_ultimo_viaje)
+  
+  set ganancia_mensual ganancia_mensual + ganancia
+  set salario_mensual_tripulacion ganancia_mensual / tamanio_tripulacion
+   
+  registrar_viaje
+
+  actualizar_memoria
+  
+  ;; se reinicializa la memoria del viaje
+  set distancia_recorrida 0
+  set horas_en_mar 0
+  set sitios_visitados []
+  set capturas_viaje []
+
+  set tiempo_descansado 0
+  set estado "descansando"
+  
+  if estado_economico = "quiebra" [
+    move-to mi_puerto 
+    set heading 90
+    fd 1
+    set activo? false
+  ]
+
+end
+
+to-report obtener_balance_pesca
+  set ingreso_venta_captura (obtener_captura_total_viaje * PRECIO_BIOMASA)
+  set gasto_gasolina (PRECIO_LITRO_GAS * LITROS_POR_DISTANCIA * longitud_celda * distancia_recorrida) + (LITROS_POR_HORA_PESCA * length sitios_visitados)
+  if saldo_subsidio_gasolina > 0 [
+    ifelse saldo_subsidio_gasolina - gasto_gasolina > 0 [
+      set saldo_subsidio_gasolina saldo_subsidio_gasolina - gasto_gasolina
+      set gasto_gasolina 0
+    ][
+      set saldo_subsidio_gasolina 0
+      set gasto_gasolina gasto_gasolina - saldo_subsidio_gasolina
+    ]
+  ]
+
+  report ingreso_venta_captura - gasto_gasolina
+end
+
+to registrar_viaje
+  ;; se registra en las listas de viajes del dia
+  set viajes_finalizados_dia viajes_finalizados_dia + 1 
+  let _captura obtener_captura_total_viaje 
+  let _ganancia ganancia
+  let _horas_en_mar horas_en_mar
+  let _ganancia_por_hora ganancia_por_hora
+  let _gasto_gasolina gasto_gasolina
+  let _distancia_recorrida distancia_recorrida
+  ask mi_puerto [ 
+    set capturas_dia_puerto lput _captura capturas_dia_puerto
+    set ganancias_dia_puerto lput _ganancia ganancias_dia_puerto
+    set horas_en_mar_dia_puerto lput _horas_en_mar horas_en_mar_dia_puerto
+    set ganancias_por_hora_dia_puerto lput _ganancia_por_hora ganancias_por_hora_dia_puerto
+    set gastos_gasolina_dia_puerto lput _gasto_gasolina gastos_gasolina_dia_puerto
+    set distancias_recorridas_dia_puerto lput _distancia_recorrida distancias_recorridas_dia_puerto
+    set viajes_finalizados_dia_puerto viajes_finalizados_dia_puerto + 1
+  ]
+end
+
+
+to actualizar_memoria
+  actualizar_memoria_EEI
+  ;  actualizar_msemoria_EG
+end
+
+to actualizar_memoria_EEI
+  let nuevo_mejor_sitio mejor_sitio
+  (ifelse
+    SELECCION_MEJOR_SITIO = "inicio de viaje" [
+      set nuevo_mejor_sitio (item 0 sitios_visitados)
+    ]
+    SELECCION_MEJOR_SITIO = "mayor captura en viaje" [
+      let sumas_captura_sitios_viaje []
+      foreach capturas_viaje [
+        captura_sitio -> 
+        set sumas_captura_sitios_viaje lput (sum captura_sitio) sumas_captura_sitios_viaje
+      ]
+      set nuevo_mejor_sitio (item (obtener_indice_max sumas_captura_sitios_viaje) sitios_visitados)
+    ]
+  )
+
+  if ganancia_por_hora > ganancia_por_hora_ultimo_viaje [
+    set mejor_sitio nuevo_mejor_sitio
+  ]
+  set ganancia_por_hora_ultimo_viaje ganancia_por_hora
+end
+
+;; este procedimiento se actualiza mensualmente
+to actualizar_estado_economico
+  (ifelse 
+    estado_economico = "viable" and salario_mensual_tripulacion <  7000 [ 
+      set estado_economico "crisis"
+      set meses_crisis 1
+      set shape "barco crisis"
+    ]
+    estado_economico = "crisis" and salario_mensual_tripulacion >= 7000 [ 
+      set estado_economico "viable" 
+      set meses_crisis 0
+      set shape "barco viable"
+    ]
+    estado_economico = "crisis" and salario_mensual_tripulacion <  7000 [ 
+      ifelse meses_crisis < MESES_PARA_COLAPSO_EMBARCACION
+      [ set meses_crisis meses_crisis + 1 ]
+      [ set estado_economico "quiebra" 
+        set shape "barco quiebra" ]
+    ]
+  )
+end
+
+;; este procdimiento se debe ejecutar después de actualizar la zonificación
+;; y antes de recalcular una ruta
+to actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados
+  set posibles_sitios_pesca celdas_libre with [num_region = [region_pesca] of myself]
+  let nuevo_mejor_sitio one-of posibles_sitios_pesca with-min [ distance [ mejor_sitio] of myself ]
+  if nuevo_mejor_sitio = nobody [ show "Advertencia: No puedo encontrar un nuevo mejor sitio" ]
+  foreach sitios_visitados [
+    sitio -> 
+    if member? sitio celdas_restriccion or member? sitio celdas_protegido [
+      let pos position sitio sitios_visitados
+      set sitios_visitados replace-item pos sitios_visitados nuevo_mejor_sitio
+      show "Cambié mis sitios visitados"
+    ]
+  ]
+  if member? mejor_sitio celdas_restriccion or member? mejor_sitio celdas_protegido  [
+    set mejor_sitio nuevo_mejor_sitio
+    show "Cambié mi mejor sitio"
+  ]
+  if destino != nobody and (member? destino celdas_restriccion or member? destino celdas_protegido) [
+    set destino nuevo_mejor_sitio
+    show "Cambié mi destino"
+  ]
+  ;; si estoy planeando continuar un viaje y definen a todos mis vecinos como
+  ;; protegidos entonces me quedo sin sitios candidatos para continuar mi pesca
+  ;; por lo tanto me muevo primero a mi nuevo mejor sitio.
+  if estado = "planeando" and tipo_planeacion = "continuar" [ 
+    set estado "moviendose" 
+  ]
+  if estado = "moviendose" [
+    set ruta obtener_ruta_A_star patch-here destino
+    set indice_actual_ruta 0
+  ]
+  
+  ;; cuando se generan celdas restricción para que no se rompa el modelo cuando buscan 
+  ;; ruta se mueven las embarcaciones a un sitio cercano donde puedan estar
+  ask celdas_restriccion [
+    if any? embarcaciones-here [
+      ask embarcaciones-here [
+        move-to one-of posibles_sitios_pesca with-min [distance myself]
+      ]
+    ]
+  ]
+end
+
+to-report hay_veda
+  (ifelse 
+    VEDA_ENE_FEB and (time:get "month" fecha = 1  or time:get "month" fecha = 2 ) [ report true ]
+    VEDA_MAR_ABR and (time:get "month" fecha = 3  or time:get "month" fecha = 4 ) [ report true ]
+    VEDA_MAY_JUN and (time:get "month" fecha = 5  or time:get "month" fecha = 6 ) [ report true ]
+    VEDA_JUL_AGO and (time:get "month" fecha = 7  or time:get "month" fecha = 8 ) [ report true ]
+    VEDA_SEP_OCT and (time:get "month" fecha = 9  or time:get "month" fecha = 10) [ report true ]
+    VEDA_NOV_DIC and (time:get "month" fecha = 11 or time:get "month" fecha = 12) [ report true ]
+    [report false ]
+    )
+end
+
+
+
+;to actualizar_memoria_EG
+;  let indice [id] of (item 0 sitios_visitados)
+;  set conteo replace-item indice conteo ((item indice conteo) + 1)
+;  let n (item indice conteo)
+;
+;  let valor item indice valores
+;  let nuevo_valor valor + (1 / n) * (ganancia_por_hora - valor)
+;  set valores replace-item indice valores nuevo_valor
+;
+;  let id_max_valores obtener_indice_max valores
+;  set mejor_sitio one-of celdas_mar with [id = id_max_valores]
+;end

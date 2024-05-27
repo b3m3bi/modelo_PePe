@@ -1,0 +1,95 @@
+patches-own [
+  hidrocarburo           ;; number: cantidad de hidrocarburo disponible en la celda
+  
+  derramado?
+  tiempo_desde_derrame
+]
+
+globals [
+  ganancia_acumulada_petroleo ;; number: registra la ganancia todal del petroleo acumulada en el tiempo 
+]
+
+to init_hidrocarburo
+  ask patches [
+    set derramado? false
+    set tiempo_desde_derrame -999
+    set hidrocarburo 0
+  ]
+  ask celdas_mar [
+    set hidrocarburo HIDROCARBURO_INICIAL
+  ]
+end
+
+to COLOCAR_PLATAFORMAS
+  ifelse mouse-down? [
+    ask patch mouse-xcor mouse-ycor [
+      if not ya_me_picaste [
+        set ya_me_picaste true
+        ;; supuesto: solo se puede poner una plataforma por pixel
+        ifelse tipo = "mar" [
+          ifelse not any? plataformas-here [
+            instalar_plataforma
+          ][
+            user-message "Aquí ya hay una plataforma. Busca otro lugar para colocar una nueva."
+          ]
+        ][
+          user-message "No se pueden colocar plataformas en la tierra."
+        ]
+      ]
+    ]
+    colorear_celdas
+    display
+    actualizar_zonificacion
+    actualizar_transitables
+    ask embarcaciones [ actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados ]
+  ]
+  [
+    ask patches [ set ya_me_picaste false ]
+  ]
+end
+
+to subsidiar_gasolina
+  ask embarcaciones [
+    set saldo_subsidio_gasolina SUBSIDIO_MENSUAL_GASOLINA
+    set ganancia_acumulada_petroleo ganancia_acumulada_petroleo - SUBSIDIO_MENSUAL_GASOLINA
+  ]
+end
+
+
+
+to iniciar_derrame [ x y ]
+  ask patch x y [
+    set derramado? true 
+    set tiempo_desde_derrame 0
+  ]
+end
+
+to dinamica_derrame
+  if random-float 1.0 < PROB_OCURRENCIA_DERRAME and any? plataformas [
+    let origen [patch-here] of one-of plataformas
+    iniciar_derrame [pxcor] of origen [pycor] of origen
+  ]
+  extender_derrame
+end
+
+to extender_derrame
+  ask patches with [derramado? and tiempo_desde_derrame = 1 ][
+    ask neighbors4 with [ tipo = "mar" and not derramado?][
+      if random-float 1.0 < PROB_EXTENSION_DERRAME [
+        set derramado? true
+        set tiempo_desde_derrame 0
+        set biomasas (map [b -> b - (b * TASA_MORTALIDAD_DERRAME)] biomasas)
+      ]
+    ]
+  ]
+  ask patches with [ derramado? ][
+    if random-float 1.0 < TASA_MORTALIDAD_DERRAME [
+      ask tortugas-here [ die ]
+    ]
+    set tiempo_desde_derrame tiempo_desde_derrame + 1
+    if tiempo_desde_derrame > TIEMPO_DERRAMADO [ 
+      set derramado? false
+      set tiempo_desde_derrame -999
+    ]
+  ]
+end

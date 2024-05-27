@@ -1,0 +1,64 @@
+globals [
+  ancho_tierra                   ;; number: número de cuadros del extremo derecho del mundo que representan la tierra
+  
+  celdas_tierra                  ;; agentset (patches): celdas que representan la tierra
+  celdas_mar                     ;; agentset (patches): celdas que representan el mar
+  
+  num_regiones                   ;; number: número de regiones en las que se dividen las celdas de mar
+  
+]
+
+
+to init_paisaje
+  
+  ask patches [
+    init_celda
+  ]
+  
+  set ancho_tierra 3
+  
+  ;; se crea la franja de tierra
+  set celdas_tierra patches with [ pxcor > max-pxcor - ancho_tierra ]
+  ask celdas_tierra [ set tipo "tierra" ]
+  
+  ;; se crea el mar en el resto de los parches 
+  set celdas_mar patches with [ pxcor <= max-pxcor - ancho_tierra ]
+  ask celdas_mar [ set tipo "mar" ]
+end
+
+
+to init_puertos
+  let sep world-height / (NUM_PUERTOS + 1)
+  let pos_y min-pycor + sep
+  
+  foreach (range NUM_PUERTOS) [
+    p ->
+    create-puertos 1 [
+      init_puerto
+      set num_puerto p
+      set color (item p colores_puertos_embarcaciones) - 2
+      setxy ( max-pxcor - ancho_tierra + 1 ) pos_y
+      
+      set tipo "puerto"
+    ]
+    set pos_y pos_y + sep
+  ]
+end
+
+
+to init_regiones
+  set num_regiones 3
+  
+  let _long_regiones (list LONG_REGION_1 LONG_REGION_2 LONG_REGION_3)
+  let pos_x max-pxcor - ancho_tierra
+  
+  (foreach _long_regiones (range 1 (num_regiones + 1)) [
+    [l r] ->
+    ask celdas_mar with [ pxcor <= pos_x and pxcor >= pos_x - l ][ set num_region r ]
+    set pos_x pos_x - l
+    if pos_x < min-pxcor [ print "Advertencia: El tamaño del mundo es menor que el necesario para las longitudes de region dadas. Se completo solo con el espacio disponible." ]
+  ])
+  if pos_x > min-pxcor [ print "Advertencia: El tamaño del mundo es mayor que el que suman las longitudes de region dadas. Quedaron celdas de mar sin región asignada." ]
+  
+  
+end

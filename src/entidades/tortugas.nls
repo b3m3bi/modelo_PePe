@@ -1,0 +1,78 @@
+breed [ tortugas tortuga ]
+
+tortugas-own [ 
+  migrando?
+]
+
+patches-own [
+  zona_anidamiento?
+  zona_alimentacion?
+  vecinos_derecha
+  vecinos_izquierda
+  vecinos_zona_alimentacion
+]
+
+
+to init_tortugas
+  
+  ask patches [ 
+    set zona_anidamiento? false
+    set zona_alimentacion? false
+    set vecinos_derecha   (patch-set patch-at-heading-and-distance 45 1 patch-at-heading-and-distance 90 1 patch-at-heading-and-distance 135 1 )
+    set vecinos_izquierda (patch-set patch-at-heading-and-distance -45 1 patch-at-heading-and-distance -90 1 patch-at-heading-and-distance -135 1 )
+    set vecinos_zona_alimentacion nobody
+  ]
+  ;; se defifnen las zonas de anidamiento
+  ask patches with [ pxcor = max-pxcor - ancho_tierra + 1][
+    set zona_anidamiento? true 
+  ]
+  
+  ask patches with [ num_region = 2 or num_region = 3][
+    set zona_alimentacion? true
+  ]
+  
+  ask patches with [ zona_alimentacion? ][
+    set vecinos_zona_alimentacion neighbors with [ zona_alimentacion? ]
+  ]
+  
+  create-tortugas TAMANIO_POB_INICIAL_TORTUGAS [
+    set shape "turtle"
+    set color lime 
+    set size .5
+    move-to one-of patches with [ zona_alimentacion? ]
+    set migrando? false
+  ]
+end
+
+
+to dinamica_tortugas 
+  ;; ciclo anual
+  if (ticks mod 360 = INICIO_MIGRACION) [
+    ask tortugas [ set migrando? true ]
+  ]
+  
+  ;; movimiento
+  ask tortugas [
+    (ifelse  
+      migrando? [ face one-of vecinos_derecha ]
+      not migrando? and not zona_alimentacion? [ face one-of vecinos_izquierda ]
+      not migrando? and zona_alimentacion? [ face one-of vecinos_zona_alimentacion ]
+    )
+    jump 1
+  ]
+ 
+  ;; reproducción
+  ask tortugas [
+    if zona_anidamiento? [
+      set migrando? false
+      hatch NUM_DESCENDIENTES_TORTUGAS
+    ]
+  ]
+  
+  ;; mortalidad
+  ask patches [
+    if zona_alimentacion? and count tortugas-here with [ not migrando? ] > CAPACIDAD_DE_CARGA_TORTUGAS [
+      ask n-of (count tortugas-here - CAPACIDAD_DE_CARGA_TORTUGAS) tortugas-here [ die ]
+    ]
+  ]  
+end

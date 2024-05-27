@@ -1,0 +1,84 @@
+globals [
+  _num_especies            ;; number: duplicación de variable NUM_ESPECIES de la interfaz (se usa para no romper el modelo si el usuario la mueve)
+]
+
+patches-own [
+  biomasas                 ;; list (number): lista con la cantidad de biomasa de cada especie
+  habitats                 ;; list (number): lista que indica si la especie en un índice peude vivir (1) o no (0) en una celda
+  cambio_biomasas          ;; list (number): lista con la cantidad de cambio de la biomasa por la difusión de y hacia las celdas vecinas
+]
+
+
+to init_habitats
+  
+  ask patches [set habitats [ 0 0 0 ]]
+  
+  if DISTRIBUCION_ESPECIES = "homogenea" [
+    ask celdas_mar [
+      set habitats [ 1 1 1 ]
+    ]
+  ]
+
+  if DISTRIBUCION_ESPECIES = "partes iguales" [
+    let tamanio_region round (world-height / _num_especies)
+    let pos_y min-pycor
+    foreach range _num_especies [
+      i ->
+      let hab [ 0 0 0 ]
+      set hab replace-item i hab 1
+      ask celdas_mar with [ pycor >= pos_y ][
+        set habitats hab
+      ]
+      set pos_y pos_y + tamanio_region
+    ]
+  ]
+  
+  if DISTRIBUCION_ESPECIES = "dif spp en cada region" [
+    set NUM_ESPECIES 3
+    foreach (range 3) [
+      i ->
+      ask patches with [ num_region = i + 1 ][
+        set habitats replace-item i habitats 1
+      ]
+    ]
+  ]
+end
+
+to init_ecologia  
+  set _num_especies NUM_ESPECIES
+  ask patches [
+    set cambio_biomasas n-values _num_especies [0]
+  ]
+  ask celdas_tierra [
+    set biomasas n-values _num_especies [0]
+  ]
+  ask celdas_mar [
+    set biomasas sublist (map [[b h] -> b * h] (read-from-string BIOMASAS_INICIALES) habitats) 0 _num_especies
+  ]
+end
+
+to dispersion
+  ask celdas_mar [
+    foreach range _num_especies [
+      i ->
+      let vecinos_habitat neighbors4 with [ tipo = "mar" and (item i habitats = [item i habitats] of myself)]
+      let M_i item i read-from-string Ms
+      set cambio_biomasas replace-item i cambio_biomasas (sum [( item i biomasas - [item i biomasas] of myself) * M_i] of vecinos_habitat )
+    ]
+  ]
+  ask celdas_mar [
+    set biomasas (map [[b c] -> b + c] biomasas cambio_biomasas)
+  ]
+end
+
+to dinamica_poblacional
+  ask celdas_mar [
+    foreach range _num_especies [
+      i ->
+      let biomasa_i item i biomasas
+      let R_i item i read-from-string Rs
+      let K_i item i read-from-string Ks
+      set biomasas replace-item i biomasas (biomasa_i + ( biomasa_i * R_i * (1 - (biomasa_i / K_i))))
+    ]
+  ]
+end

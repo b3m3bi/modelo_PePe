@@ -1,0 +1,91 @@
+patches-own [ 
+  zonificacion        ;; string: tipo de zonificación que se le asigna a una celda: "libre", "restriccion", "protegido", "NA"
+  
+  ya_me_picaste       ;; boolean: variable para ayudar a la interactividad al seleccionar areas
+  num_zona            ;; number: identificador del grupo de zonificacion al que pertenezco
+]
+
+globals [
+  celdas_restriccion
+  celdas_libre
+  celdas_protegido
+  
+   num_zonas           ;; number: número total de zonas 
+]
+
+to init_zonificacion
+  
+  ask patches [ 
+    set ya_me_picaste false 
+    set num_zona -999
+  ]
+  
+  ask celdas_tierra [ set zonificacion "NA" ]
+  ask celdas_mar    [ set zonificacion "libre" ]
+  
+  set num_zonas 0
+  
+  actualizar_zonificacion
+end
+
+to SELECCIONAR_ZONAS_PROTEGER
+  ;; TODO: desactivar los otros botones activos
+  ifelse mouse-down? [
+    ask patch mouse-xcor mouse-ycor [
+      if not ya_me_picaste [
+        set ya_me_picaste true 
+        ifelse zonificacion = "libre" or zonificacion = "restriccion" 
+        [ set zonificacion "protegido" ]
+        [ set zonificacion "libre" ]
+      ]
+    ]
+    
+    actualizar_zonificacion
+    actualizar_transitables
+    ask embarcaciones [ actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados ]
+    
+    colorear_celdas
+;    clear-drawing
+;    dibujar_regiones
+;    dibujar_borde celdas_restriccion
+;    dibujar_borde celdas_protegido
+    display
+  ][
+    ask patches [ set ya_me_picaste false ]
+  ]
+  ;; TODO: tratar casos extremos como que declaren toda la zona pesquera como protegida
+end
+
+to actualizar_zonificacion
+  set celdas_restriccion patches with [ zonificacion = "restriccion" ]
+  set celdas_libre patches with [ zonificacion = "libre" ]
+  set celdas_protegido patches with [ zonificacion = "protegido" ]
+end
+
+to SELECCIONAR_ZONAS_RESTRICCION
+  ;; TODO: desactivar los otros botones activos
+  ifelse mouse-down? [
+    ask patch mouse-xcor mouse-ycor [
+      if not ya_me_picaste [
+        set ya_me_picaste true 
+        ifelse zonificacion = "libre" or zonificacion = "protegido" 
+        [ set zonificacion "restriccion" ]
+        [ set zonificacion "libre" ]
+      ]  
+    ]
+    actualizar_zonificacion
+    actualizar_transitables
+    ask embarcaciones [ actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados ]
+    
+    colorear_celdas
+;    clear-drawing
+;    dibujar_regiones
+;    dibujar_borde celdas_restriccion
+;    dibujar_borde celdas_protegido
+    display
+  ][
+    ask patches [ set ya_me_picaste false ]
+  ]
+  ;; TODO: tratar casos extremos como que declaren toda la zona pesquera como protegida o que dejen
+  ;; a una embarcacion sin posibilidad de regresar a su puerto
+end

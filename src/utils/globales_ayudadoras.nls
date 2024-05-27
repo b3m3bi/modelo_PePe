@@ -1,0 +1,34 @@
+extensions [ 
+  time
+]
+
+globals [
+  fecha
+  fecha_inicio
+  colores_puertos_embarcaciones ;; list: lista con los colores que pueden tener los puertos y embarcaciones
+  horas_iteracion               ;; number: horas que representa un tick. Esta variable solo puede tomar valores que generen un "x mod 24 = 0" (e.g., 1, 2, 3, 4, 6, 8, 12, 24)
+  longitud_celda                ;; number: longitud y ancho de una celda del mapa (en km)
+  
+  dias
+  ano
+]
+
+;; este procedimiento inicializa variables que utilizan otros procesos de inicialización
+;; por lo que es importante ejecutarlo antes que todos los demás
+to init_globales
+  set fecha_inicio time:create "01-01"
+  set fecha fecha_inicio
+  set dias 0
+  set ano 0
+  set colores_puertos_embarcaciones [ pink violet blue ]
+  set horas_iteracion 24
+  set longitud_celda 10
+end
+
+;; para que en la interfaz se grafique el dia correcto se le suma uno a los ticks
+;; ya que la el proceso ticks se actualiza hasta el final del procedimiento EJECUTAR
+to actualizar_fecha
+  set fecha time:plus fecha 1 "days"
+  set dias dias + 1
+  if paso_un_ano [ set ano ano + 1 ]
+end

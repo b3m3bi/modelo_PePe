@@ -1,0 +1,35 @@
+globals [
+  viajes_finalizados_dia        ;; number: número total de viajes completados que se registran en un día 
+  capturas_dia_todo             ;; list (number): lista con la capturas de todos los viajes completados en un día para cada puerto
+  ganancias_dia_todo            ;; list (number): lista con la ganancia de todos los viajes completados en un día
+  horas_en_mar_dia_todo         ;; list (number): lista con la duración en horas de los viajes completados en un día
+  ganancias_por_hora_dia_todo   ;; list (number): lista con la ganancia por hora de los viajes completados en un día
+  gastos_gasolina_dia_todo      ;; list (number): lista con el gasto en gasolina de los viajes completados en un día
+  distancias_recorridas_dia_todo;; list (number): lista con las distancias recorridas de todos los viajes completados en un día
+]
+
+
+to init_registros_diarios_todo
+  set viajes_finalizados_dia 0
+  set capturas_dia_todo []
+  set ganancias_dia_todo []
+  set horas_en_mar_dia_todo []
+  set ganancias_por_hora_dia_todo []
+  set gastos_gasolina_dia_todo []
+  set distancias_recorridas_dia_todo []
+end
+
+to registro_puertos_a_total
+  foreach sort puertos [
+    p ->
+    ask p  [
+      set capturas_dia_todo lput (sum capturas_dia_puerto) capturas_dia_todo
+      foreach gastos_gasolina_dia_puerto [ l -> set gastos_gasolina_dia_todo lput l gastos_gasolina_dia_todo]
+      foreach ganancias_por_hora_dia_puerto [ l -> set ganancias_por_hora_dia_todo lput l ganancias_por_hora_dia_todo]
+      foreach horas_en_mar_dia_puerto [ l -> set horas_en_mar_dia_todo lput l horas_en_mar_dia_todo ]
+      foreach ganancias_dia_puerto [ l -> set ganancias_dia_todo lput l ganancias_dia_todo ]
+      foreach distancias_recorridas_dia_puerto [ l -> set distancias_recorridas_dia_todo lput l distancias_recorridas_dia_todo ]
+    ]
+    
+  ]
+end

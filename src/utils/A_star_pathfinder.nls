@@ -1,0 +1,72 @@
+patches-own [
+  _f                ;; number: costo f del nodo
+  _parent           ;; patch: celda previa en la ruta
+  transitable?      ;; boolean: indica si una celda es transitable o no
+]
+
+to init_A_star_pathfinder
+  ask patches [
+    set _parent nobody
+    set _f 0
+    set transitable? false
+  ]
+  actualizar_transitables
+end
+
+to actualizar_transitables
+  ;; se define que celdas serán transitables
+  ask patches [ set transitable? false ]
+  ask celdas_libre [ set transitable? true ]
+  ask celdas_protegido [ set transitable? true ]
+  ask puertos [ set transitable? true ]
+end
+
+
+to-report obtener_ruta_A_star [inicio final]
+  let _open (patch-set inicio)
+  let _closed nobody
+  
+  while [count _open != 0][
+    let _current min-one-of _open [_f]
+    set _closed (patch-set _closed _current)
+    
+    if _current = final [ report reconstruir_ruta_A_star inicio final ]
+    
+    set _open _open with [not member? self (patch-set _current)]
+    
+    ask _current [
+      ask neighbors with [transitable?][
+        if member? self _closed [stop]
+        let _tentative_g_cost ([ _g_cost inicio ] of myself) + distance myself
+        if _tentative_g_cost < _g_cost inicio or not member? self _open [
+          set _f _tentative_g_cost + _h_cost final
+          set _parent _current
+          set _open (patch-set _open self)
+        ]
+      ]
+    ]
+  ]   
+end
+
+to-report _g_cost [inicio]
+  report distance inicio
+end
+
+to-report _h_cost [final]
+  report distance final
+end
+
+
+to-report reconstruir_ruta_A_star [inicio final]
+  let _celda_actual final
+  let _ruta (list _celda_actual)
+
+  while [_celda_actual != inicio] [
+    let _padre_celda_actual [_parent] of _celda_actual
+    ask _celda_actual [
+      set _ruta fput _parent _ruta
+    ]
+    set _celda_actual _padre_celda_actual
+  ]
+  report _ruta
+end

@@ -1,0 +1,48 @@
+breed [ plataformas plataforma ]
+
+plataformas-own [
+  produccion_dia          ;; number: cantidad de hidrocarburo producido en un día
+  ganancia_dia            ;; number: ganancia por la producción de hidrocarburo en un día
+  mi_puerto
+]
+
+
+to init_plataformas
+  ask n-of NUM_PLATAFORMAS celdas_mar with [ num_region = REGION_PLATAFORMAS ][
+    instalar_plataforma
+  ]
+  actualizar_zonificacion
+  actualizar_transitables
+  ask embarcaciones [ actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados ]
+end
+
+to instalar_plataforma
+  sprout-plataformas 1 [
+    init_plataforma
+    ask celdas_mar at-points vecindad_moore RADIO_RESTRICCION_PLATAFORMAS true [ set zonificacion "restriccion" ]
+  ]
+end
+
+to init_plataforma
+  set shape "plataforma"
+  set color gray - 4
+  set mi_puerto min-one-of puertos [distance myself]
+end
+
+to extraer_hidrocarburo
+    
+  set produccion_dia hidrocarburo * TASA_DECLINACION_HIDROCARBURO
+  set hidrocarburo hidrocarburo - produccion_dia
+  
+  if derramado? [
+    set produccion_dia 0
+  ]
+  
+  let vecinos_no_restringidos count celdas_libre at-points vecindad_moore 4 true
+  let costos_operacion vecinos_no_restringidos * COSTO_OPERACION_POR_CELDA
+  let costos_transporte (distance mi_puerto) * COSTO_TRANSPORTE_POR_UNIDAD_DISTANCIA
+  
+  set ganancia_dia produccion_dia * PRECIO_CRUDO - costos_operacion - costos_transporte
+  
+  set ganancia_acumulada_petroleo ganancia_dia
+end

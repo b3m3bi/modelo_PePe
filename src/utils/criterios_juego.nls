@@ -1,0 +1,40 @@
+globals [
+  perdio?                      ;; boolean: indica si el jugador superó los límites dados
+  num_celdas_con_spp           ;; list (number): lista donde cada entrada representa el número de celdas que tienen a la especie i
+  mensaje_fin_juego            ;; string: mensaje que recibe el usuario cuando se detiene la simulación porque no alcanzó el objetivo
+  
+  umbrales_biomasa_sostenible  ;; list (number): lista donde cada entrada representa el umbral de biomasa sostenible para la especie i
+]
+
+to init_umbrales_juego
+  set perdio? false
+  set mensaje_fin_juego ""
+  
+  set num_celdas_con_spp []
+  set umbrales_biomasa_sostenible []
+  
+  foreach range _num_especies [
+    i ->
+    let num_celdas_con_sp count patches with [ (item i habitats) = 1 ]
+    set num_celdas_con_spp lput num_celdas_con_sp num_celdas_con_spp
+    
+    let umbral_biomasa ( UMBRAL_BIOMASA_SOSTENIBLE / 100) * (item i num_celdas_con_spp) * (item i read-from-string Ks)
+    set umbrales_biomasa_sostenible lput umbral_biomasa umbrales_biomasa_sostenible
+  ]
+end
+
+to revisar_umbrales_juego
+  foreach range _num_especies [
+    i ->
+    if sum[item i biomasas] of patches < (item i umbrales_biomasa_sostenible)  [ 
+      set perdio? true 
+      set mensaje_fin_juego (word "Colapso biológico: se sobreprescó a la especie " i ". La población se redujo al " UMBRAL_BIOMASA_SOSTENIBLE "%.")
+    ]
+  ]
+  
+  if count embarcaciones with [ not activo? ] > (UMBRAL_NUMERO_EMBARCACIONES / 100) * count embarcaciones [
+    set perdio? true
+    set mensaje_fin_juego (word "Colapso de la industria pesquera: el " UMBRAL_NUMERO_EMBARCACIONES "% de las embarcaciones quebraron economicamente.")
+  ]
+end
+
