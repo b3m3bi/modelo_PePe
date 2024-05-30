@@ -36,7 +36,7 @@ to init_puertos
     create-puertos 1 [
       init_puerto
       set num_puerto p
-      set color (item p colores_puertos_embarcaciones) - 2
+      set color black;;(item p colores_puertos_embarcaciones) - 2
       setxy ( max-pxcor - ancho_tierra + 1 ) pos_y
       
       set tipo "puerto"

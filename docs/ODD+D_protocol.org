@@ -1,0 +1,99 @@
+#+title: ODD+D protocol
+#+author: Luis Guillermo García Jácome
+#+bibliography: PePe-ref.bib
+
+* Overview
+** Purpose
+*** What is the purpose of the study?
+To explore with different stakeholders through the use of serious games how fisheries, oil industry and conservation interact in the Campeche Bank and the tradeoffs that result form different management practices related to these three sectors.
+*** For whom is the model designed?
+For different local stakeholders participating in workshops and interested in the usage and management of the sea landscape (fisheries leaders, fishers, conservation agencies representatives, oil industry representatives, goverment representatives).
+** Entities, state variables and scales
+*** What kinds of entities are in the model?
+- one human entity: boats
+- two infrastructure entity: oil platforms, ports
+- one biological entity: turtles
+- one bio-physical entity: sea patches
+*** By what attributes (i.e., state variables and parameters) are these  entities characterised?
+- Boats: a port where it lands, a fishing region, an state describing the action it carries out at each moment (resting, planning, moving, fishing, landing), a prefered fishing patch, a catch and income, a capturability and maximum vessel capacity, a crew size, an economic state.
+- Oil platforms: a daily production and income.
+- Turtles: a state describing if it is migrating or feeding.
+- Sea patches: a type (sea, land), the biomass of the fishing species living there, an oil concentration, a zoning type (restricted, protected, free), a region id representing different fishing regions, a spilled state.
+*** What are the exogenus factors/drivers of the model?
+The catch and oil prices are fixed.
+*** If applicable, how is space included in the model?
+Space is included implicitly, each patch represents a spatial unit and boats, turtles and biomass move in the space.
+*** What are the temporal and spatial resolutions and extents of the model?
+Each time step represents a day. Each patch represents a 10x10 km square. There are X patches representing an area of XXX km^2.
+** Process overview and scheduling
+*** What entity does what, and in what order?
+Daily a boat has 24 hours to carry out 5 different activities: rest at port, plan next trip, move towards a destination, fish and land at port. Each activity costs time to the boat.
+Daily the biomass at a patch disperses to neighbor patches, and annualy biomass at each patch regenerates.
+Daily oil platforms extract oil and oil spills can ocurr following a probability.
+Daily turtles move in their feeding region and annualy they migrate to the coast to lay eggs.
+Game thresholds are checked monthly.
+* Design Concepts
+** Theoretical and Empirical Background
+*** Which general concepts, theories or hypotheses are underlying the model's design at the system level or at the level(s) of the submodel(s) (apart from the decision model)? What is the link to complexity and the purpose of the model?
+Biomass regenerates following a logistic equation. Biomass disperses following by diffusion. Oil extraction follows a exponential decay. Turtles behaivour follow a general migratory pattern characteristic of the species.
+*** On what assuptions is/are the agents' decision model(s) based?
+To choose where to fish boat agents follow an Explore-Exploit-Imitate dynamics [cite:@bailey2019], a modification of the epsilon-greedy algorithm of the Explore-Exploit dilemma. To choose where to continue fishing during a trip boat agents follow and /ad-hoc/ rule where they choose randomly a nearby patch.
+*** Why is/are certain decision model(s) chosen?
+The decision model of the boat agents was chosen because this simple model has been previously demonstrated to reproduce some empirical observed patterns [cite:@bailey2019; @carrella2020].
+Some main decision of the model such as the fishing region, oil platforms region, protected area size and location are left to the game players. The game narrative treats the players as a members of a spatial planning committee that are exposed to different situations. One purpose of the game is to highlight trade-offs that emerge form some management decisions of these three sectors.
+*** If the model/submodel (e.g., the decision model) is based on empirical data, where to the data come from?
+The model is not based on empirical data.
+*** At which level of aggregation where the data available?
+Does noy apply.
+** Individual Decision Making
+*** What are the subjects and objects of the decision-making? On which level of aggregation is decision-making modelled? Are multiple levels of decision making included?
+Boats decide the patch where they are going to fish.
+*** What is the basic rationality behind agent decision-making in the model? Do agents pursue an explicit objetive of have other success criteria?
+Boat agents choose where to fish based on where they or their friends have gained the most economic income in previous trips. As the income gained changes as the biomass available at a patch goes down and as boats go farther away form the port, they need to explore new sites to increase again their income. 
+*** How do agents make their decisions?
+Se details at Submodel section.
+*** Do the agents adapt their behavious to changing endogenous and exogenous sate variables? And if yes, how?
+Yes. Boat agents choose where to fish based on the income they gain in previos trips in a site. The catches that determine the gain change as biomass availability fluctuates with competition, migration and regrowth. Agents adapt this changes by exploring new fishing sites.
+*** Do social norms or cultural values play a role in the decision-making process?
+No.
+*** Do spatial aspects play a role in the decision process?
+No. But the distance traveled influence the gain that the boat agents gain from fishing and thus the site they choose for fishing.
+*** Do temporal aspect play a role in the decision process?
+Yes. Boat agents have a memory of the last place where they fished and got the best catches and the economic gain they got fishing there. 
+*** To which extent and how is uncertainty included in the agents' decision rules?
+Given that a best fishing patch of a boat agent may change in the future given the competition with other boats and migration and population dynamics of biomass, agents may choose with certain probability to explore a new patch.
+** Learning
+*** Is individual learing included in the decision process? How do invidivuals change their decision rules over time as consequence of their experience?
+Yes. Explore-Exploit-Imitate is a rudimental way in which boat agents learn the best sites to fish. Agents learn to fish first in patches close to the port as the travel costs are cheaper. As biomass and income goes down they move outwards to new sites.
+*** Is collective learing implemented in the model?
+Yes. Boat agents can share information with their firends about their previous best fishing site and income. When an agent identifies a friend whose income was grater than its, it imitates the best fishing site of the firend. This simple mechanism makes more quick and efficient the learing of all boat agents.
+** Individual Sensing
+*** What endogenous and exogenous state variables are individuals assumed to sense and consider in their decisions? Is the sensing process erroneus?
+Boat agents can sens the catch, income and distance traveled. 
+*** What state variable of which other individuals can an individual perceive? Is the sensing process erroneous?
+Boat agents can access without error the best fishing site and income of their friends.
+*** What is the spatial scale of sensing?
+There is no spatial sensing of boat agents.
+*** Are the mechanisms by which agents obtain information modelled explicitly, or are individuals simply assumed to know these variables?
+The catch and movement of boat agents is modelled explicitly, and income is calculated after them.
+*** Are the costs for cognition and the costs for gathering information explictly included in the model?
+No. 
+** Individual Prediction
+*** Which data do the agents use to predict future conditions?
+Data on income gained fishing in a patch.
+*** What internal models are agents assumed to use to estimate future conditions of consequences of their decisions?
+The Explore-Explit-Imitate model [cite:@bailey2019].
+*** Might agents be erroneous in the prediction process, and how is it implemented?
+Yes, as boat agent decision is based on previous trip and as biomass available in a patch changes from competition with other boats, migration and regrowth, the patch on which previously they got high catches might give them bad catches in subsequent visits. 
+** Interaction
+** Collectives
+** Heterogeneity
+** Stochasticity
+** Observation
+* Details
+** Implementation Details
+** Initialisation
+** Input Data
+** Submodels
+
+* Submodels 

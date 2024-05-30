@@ -10,7 +10,6 @@ to init_A_star_pathfinder
     set _f 0
     set transitable? false
   ]
-  actualizar_transitables
 end
 
 to actualizar_transitables
@@ -20,7 +19,6 @@ to actualizar_transitables
   ask celdas_protegido [ set transitable? true ]
   ask puertos [ set transitable? true ]
 end
-
 
 to-report obtener_ruta_A_star [inicio final]
   let _open (patch-set inicio)

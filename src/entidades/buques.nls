@@ -1,0 +1,130 @@
+breed [ buques buque ]
+
+buques-own [
+  mi_plataforma
+  mi_puerto
+  ruta_a_puerto
+  ruta_a_plataforma
+  ruta
+  carga
+  destino
+  indice_actual_ruta
+  tiempo_restante_iteracion
+  estado
+  distancia_recorrida
+]
+
+to init_buques
+  ask plataformas [
+    hatch-buques 1 [
+      init_buque myself
+    ]
+  ]
+end
+
+
+
+to actualizar_transitables_buques
+  ask patches [ set transitable? false ]
+  ask celdas_mar [ set transitable? true ]
+  ask puertos [ set transitable? true ]
+end
+
+to init_buque [_plataforma]
+  set shape "boat 3"
+  set color black
+  set indice_actual_ruta 0
+  set tiempo_restante_iteracion 0
+  set mi_plataforma _plataforma
+  set mi_puerto min-one-of puertos [ distance _plataforma ]
+  set ruta_a_puerto obtener_ruta_A_star [patch-here] of mi_plataforma [patch-here] of mi_puerto
+  set ruta_a_plataforma obtener_ruta_A_star [patch-here] of mi_puerto [patch-here] of mi_plataforma
+  set destino [patch-here] of mi_puerto
+  set ruta ruta_a_puerto
+  set estado "cargando"
+  set distancia_recorrida 0 
+end
+
+to dinamica_iteracion_buque
+  set tiempo_restante_iteracion horas_iteracion
+  ejecutar_estado_buques    
+end
+
+to ejecutar_estado_buques
+  if tiempo_restante_iteracion > 0 [
+    (ifelse
+      estado = "moviendose"  [ moverse_buque ]
+      estado = "cargando"    [ cargando_buque ]
+      estado = "descargando" [ descargando_buque ]
+    )
+    ejecutar_estado_buques
+  ]
+end
+
+to moverse_buque
+  ifelse patch-here = destino [
+    ;; ya llegué a mi destino
+    ifelse destino = [patch-here] of mi_puerto 
+    [ set estado "descargando" ]
+    [ set estado "cargando" ]
+  ][
+    ;; avanzo una unidad de velocidad hacia mi destino
+    let _velocidad VELOCIDAD
+    let _embarcaciones_aqui count embarcaciones-here
+    (ifelse 
+      _embarcaciones_aqui >= 5  [ set _velocidad _velocidad * 0.5 ]
+      _embarcaciones_aqui >= 10 [ set _velocidad _velocidad * 0.25 ]
+      _embarcaciones_aqui >= 10 [ set _velocidad _velocidad * 0.1 ]
+    )  
+    let tamanio_paso _velocidad / longitud_celda
+    let distancia_avanzada 0
+
+    while [ distancia_avanzada < tamanio_paso ] [
+      let siguiente_celda (item indice_actual_ruta ruta)
+      face siguiente_celda
+      let distancia_avanzo min (list (tamanio_paso - distancia_avanzada) (distance siguiente_celda))
+      jump distancia_avanzo
+
+      set distancia_avanzada distancia_avanzada + distancia_avanzo
+
+      ;; reviso si ya llegué al centro o no de la siguiente celda
+      if distance siguiente_celda = 0 [
+        ;; si ya llegué cambio de indice y registro la distancia recorrida
+        set indice_actual_ruta indice_actual_ruta + 1
+
+        ;; puede que llegue al destino y me hayan sobrado pasos, por lo que me detengo
+        if patch-here = destino [ stop ]
+      ]
+    ]
+    set tiempo_restante_iteracion tiempo_restante_iteracion - 1
+    set distancia_recorrida distancia_recorrida + 1 
+  ]
+end
+
+to cargando_buque
+  set destino [patch-here] of mi_puerto
+  set carga [stock] of mi_plataforma
+  ask mi_plataforma [ set stock 0 ]
+  set ruta ruta_a_puerto
+  set indice_actual_ruta 0
+  set tiempo_restante_iteracion tiempo_restante_iteracion - 1
+  set estado "moviendose"
+end
+
+to descargando_buque
+  set destino [patch-here] of mi_plataforma
+  
+  set produccion_total produccion_total + carga 
+  
+  let costos_transporte distancia_recorrida * COSTO_TRANSPORTE_POR_UNIDAD_DISTANCIA
+  set ganancia_acumulada_petroleo ganancia_acumulada_petroleo + (carga * PRECIO_CRUDO) - costos_transporte - COSTO_OPERACION
+  
+  set carga 0
+  set ruta ruta_a_plataforma
+  set indice_actual_ruta 0
+  set tiempo_restante_iteracion tiempo_restante_iteracion - 1
+  set estado "moviendose"
+  set distancia_recorrida 0 
+end
+
+

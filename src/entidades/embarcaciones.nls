@@ -176,26 +176,9 @@ to planear
           set destino seleccionar_mejor_sitio_vecino
         ]
          SELELECCION_SITIO_PESCA_CONTINUACION = "un vecino" [
-          set destino one-of [([posibles_sitios_pesca] of myself) at-points (vecindad_moore RADIO_EXPLORAR false)] of patch-here
+          set destino one-of [([posibles_sitios_pesca] of myself) at-points (vecindad_moore RADIO_EXPLORAR false)] of patch-here 
           if destino = nobody [ show "Estoy perdido" ]
-;          set destino one-of neighbors with [ tipo = "mar" ]
-        ]
-        SELELECCION_SITIO_PESCA_CONTINUACION = "vecino cerano no visitado" [
-;          let sitio_donde_estoy (patch-set patch-here) 
-;          set posibles_sitios_pesca posibles_sitios_pesca with [ not member? self sitio_donde_estoy] 
-;          ;      ask patches with [ num_region = [region_pesca] of myself ] with [ not member? self [posibles_sitios_pesca] of myself]
-;          ;      [ set pcolor yellow ]
-;          ;      display
-;          set destino nobody
-;          set destino min-one-of posibles_sitios_pesca [distance myself]
-;          
-;          if destino = nobody [
-;            ;; en caso de que no haya ningún sitio que no haya visitado antes se reinicia la planeación 
-;            show "No hay sitios de pesca posibles que no haya visitado ya en este viaje. Se selecciona como si fuera el inicio"
-;            set tipo_planeacion "inicio"
-;            stop
-;          ]
-      ])
+        ])
     ]
     tipo_planeacion = "regreso" [ 
       set destino [patch-here] of mi_puerto

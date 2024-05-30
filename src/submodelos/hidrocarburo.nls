@@ -7,9 +7,15 @@ patches-own [
 
 globals [
   ganancia_acumulada_petroleo ;; number: registra la ganancia todal del petroleo acumulada en el tiempo 
+  produccion_total
+  
 ]
 
 to init_hidrocarburo
+  
+  set produccion_total 0
+  set ganancia_acumulada_petroleo 0
+  
   ask patches [
     set derramado? false
     set tiempo_desde_derrame -999

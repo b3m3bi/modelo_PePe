@@ -36,5 +36,10 @@ to revisar_umbrales_juego
     set perdio? true
     set mensaje_fin_juego (word "Colapso de la industria pesquera: el " UMBRAL_NUMERO_EMBARCACIONES "% de las embarcaciones quebraron economicamente.")
   ]
+  
+  if any? plataformas and ganancia_acumulada_petroleo < 0 [
+    set perdio? true 
+    set mensaje_fin_juego (word "Colapso de la industria petrolera. La producción petrolera ya no es rentable." )
+  ]
 end
 
