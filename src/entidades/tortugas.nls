@@ -10,8 +10,15 @@ patches-own [
   vecinos_derecha
   vecinos_izquierda
   vecinos_zona_alimentacion
+  
+  cap_carga
 ]
 
+globals [
+  max_cap_carga
+]
+
+;;;;; MODELO 1 ;;;;; 
 
 to init_tortugas
   
@@ -47,7 +54,7 @@ end
 
 to dinamica_tortugas 
   ;; ciclo anual
-  if (ticks mod 360 = INICIO_MIGRACION) [
+  if (ticks mod 365 = INICIO_MIGRACION) [
     ask tortugas [ set migrando? true ]
   ]
   
@@ -75,4 +82,64 @@ to dinamica_tortugas
       ask n-of (count tortugas-here - CAPACIDAD_DE_CARGA_TORTUGAS) tortugas-here [ die ]
     ]
   ]  
+end
+
+;;;;; MODELO 2 ;;;;; 
+
+to init_tortugas2
+  crear_habitat
+  create-tortugas TAMANIO_POB_INICIAL_TORTUGAS [
+    set shape "turtle"
+    set color brown + 1
+;    set shape "crab"
+;    set color orange
+;    set shape "fish"
+;    set color red
+    set size 0.5
+    move-to one-of patches with [ cap_carga >= 1 ]
+  ]
+end
+
+to crear_habitat
+  let inicio 10
+  let b inicio / (max-pxcor - inicio)
+  let m 1 / ( max-pxcor - inicio)
+  set max_cap_carga CAPACIDAD_DE_CARGA_TORTUGAS
+
+  ask celdas_tierra [ set cap_carga 0 ]
+  ask celdas_mar [
+    let ruido random-normal 0 0.5
+    set cap_carga (((pxcor * m ) - b) * max_cap_carga) + ruido
+    if cap_carga < 0 [ set cap_carga 0 ]
+    if cap_carga > max_cap_carga [ set cap_carga max_cap_carga ]
+  ]
+end
+
+
+to dinamica_tortugas_2 
+  ask tortugas [ moverse_tortugas ]
+  
+  ;; TODO: meter un parámetro para ajustar fecha de reproduccion
+  if (ticks mod 365 = DIA_REPRODUCCION_TORTUGAS) [ reproducirse_tortugas ]
+  
+  mortalidad_sobrepoblacion
+end
+
+to moverse_tortugas 
+  face one-of neighbors with [ tipo = "mar" ]
+  jump 1
+end
+
+to reproducirse_tortugas
+  ask tortugas [
+    hatch NUM_DESCENDIENTES_TORTUGAS
+  ]
+end
+
+to mortalidad_sobrepoblacion
+  ask patches [
+    if count tortugas-here > cap_carga [
+      ask n-of (count tortugas-here - cap_carga) tortugas-here [ die ]
+    ]
+  ]
 end

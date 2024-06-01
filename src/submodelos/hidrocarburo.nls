@@ -8,13 +8,15 @@ patches-own [
 globals [
   ganancia_acumulada_petroleo ;; number: registra la ganancia todal del petroleo acumulada en el tiempo 
   produccion_total
-  
+  num_derrames
+  ganancia_mensual_petroleo
 ]
 
 to init_hidrocarburo
   
   set produccion_total 0
   set ganancia_acumulada_petroleo 0
+  set num_derrames 0
   
   ask patches [
     set derramado? false
@@ -61,6 +63,9 @@ to subsidiar_gasolina
   ]
 end
 
+to init_registros_mensuales_petroleo
+  set ganancia_mensual_petroleo 0
+end
 
 
 to iniciar_derrame [ x y ]
@@ -71,9 +76,12 @@ to iniciar_derrame [ x y ]
 end
 
 to dinamica_derrame
-  if random-float 1.0 < PROB_OCURRENCIA_DERRAME and any? plataformas [
+  
+  let prob_ocurrencia_derrame GASTO_EN_MANTENIMIENTO * ( - (MAX_PROB_OCURRENCIA_DERRAME - MIN_PROB_OCURRENCIA_DERRAME) / 5) + MAX_PROB_OCURRENCIA_DERRAME
+  if random-float 1.0 < prob_ocurrencia_derrame and any? plataformas [
     let origen [patch-here] of one-of plataformas
     iniciar_derrame [pxcor] of origen [pycor] of origen
+    set num_derrames num_derrames + 1
   ]
   extender_derrame
 end

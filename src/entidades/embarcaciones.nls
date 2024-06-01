@@ -30,15 +30,19 @@ embarcaciones-own [
   artes_pesca                      ;; string: especie(s) que pesca una embarcacion
   capturabilidad                   ;; number: porcentaje de la biomasa disponible en una celda que pesca una embarcación cuando despliega sus artes de pesca
   capacidad_maxima                 ;; number: capacidad de carga de biomasa máxima que tiene una embarcación
-  dias_maximos_en_mar              ;; number: número máximo de días que una embarcación pasa en el mar
+  horas_maximas_en_mar             ;; number: número máximo de horas que una embarcación pasa en el mar
   ganancia_mensual                 ;; number: registra la ganancia mensual que genera la embarcación
   salario_mensual_tripulacion      ;; number: registra el salario mensual que recibe la tripulación 
   tamanio_tripulacion              ;; number: tamaño promedio de la tripulación de la embarcación
   estado_economico                 ;; string: describe la viabilidad económica de la embarcación ("viable", "crisis", "quiebra")
   activo?                          ;; boolean: indica si una embarcación está activa o no
   meses_crisis                     ;; number: indica cuantos meses lleva una embarcación en estado de crisis
+  averidado?
 ]
 
+globals [
+  precios_biomasa
+]
 
 to init_embarcacion [_puerto _reg_pesca]
   set mi_puerto _puerto
@@ -71,28 +75,29 @@ to init_embarcacion [_puerto _reg_pesca]
       set capturabilidad CAPTURABILIDAD_PUERTO_1
       set capacidad_maxima CAPACIDAD_MAXIMA_PUERTO_1
       set artes_pesca ARTES_PESCA_PUERTO_1
-      set dias_maximos_en_mar DIAS_MAXIMOS_EN_MAR_PUERTO_1
-      set tamanio_tripulacion (item 0 read-from-string TRIPULANTES_POR_EMBARCACION)
+      set horas_maximas_en_mar HORAS_MAXIMAS_EN_MAR_PUERTO_1
+      set tamanio_tripulacion TAMANIO_TRIPULACION_PUERTO_1
     ]
     [num_puerto] of mi_puerto = 1 [
       set capturabilidad CAPTURABILIDAD_PUERTO_2
       set capacidad_maxima CAPACIDAD_MAXIMA_PUERTO_2
       set artes_pesca ARTES_PESCA_PUERTO_2
-      set dias_maximos_en_mar DIAS_MAXIMOS_EN_MAR_PUERTO_2
-      set tamanio_tripulacion (item 1 read-from-string TRIPULANTES_POR_EMBARCACION)
+      set horas_maximas_en_mar HORAS_MAXIMAS_EN_MAR_PUERTO_2
+      set tamanio_tripulacion TAMANIO_TRIPULACION_PUERTO_2
     ]
     [num_puerto] of mi_puerto = 2 [
       set capturabilidad CAPTURABILIDAD_PUERTO_3
       set capacidad_maxima CAPACIDAD_MAXIMA_PUERTO_3
       set artes_pesca ARTES_PESCA_PUERTO_3
-      set dias_maximos_en_mar DIAS_MAXIMOS_EN_MAR_PUERTO_3
-      set tamanio_tripulacion (item 2 read-from-string TRIPULANTES_POR_EMBARCACION)
+      set horas_maximas_en_mar HORAS_MAXIMAS_EN_MAR_PUERTO_3
+      set tamanio_tripulacion TAMANIO_TRIPULACION_PUERTO_3
     ])
   set ganancia_mensual 0
   set salario_mensual_tripulacion 7000
   set estado_economico "viable"
   set activo? true
   set meses_crisis 0
+  set averidado? false
   
   set shape "barco viable" 
   set color item ([num_puerto] of mi_puerto) colores_puertos_embarcaciones
@@ -121,6 +126,8 @@ to init_embarcaciones
       print (word "Advertencia: No hay suficientes embarcaciones en el puerto " [num_puerto] of mi_puerto " para formar NUM_AMIGOS = " NUM_AMIGOS " amistades. No se creará ninguna amistad para las embarcaciones de este puerto." )
     ]
   ]
+  
+  set precios_biomasa read-from-string PRECIOS_KILO_BIOMASA
 end
 
 to init_registros_mensuales_embarcaciones
@@ -167,7 +174,7 @@ to planear
       set posibles_sitios_pesca celdas_libre with [num_region = [region_pesca] of myself]
       set destino seleccionar_sitio_pesca
     ]
-    tipo_planeacion = "continuar" and CAMBIAR_SITIO_PESCA? [ 
+    tipo_planeacion = "continuar" and CAMBIAR_SITIO_PESCA? [
       (ifelse 
         SELELECCION_SITIO_PESCA_CONTINUACION = "EEI" [
           set destino seleccionar_sitio_pesca
@@ -175,10 +182,10 @@ to planear
         SELELECCION_SITIO_PESCA_CONTINUACION = "mejor vecino" [
           set destino seleccionar_mejor_sitio_vecino
         ]
-         SELELECCION_SITIO_PESCA_CONTINUACION = "un vecino" [
+        SELELECCION_SITIO_PESCA_CONTINUACION = "un vecino" [
           set destino one-of [([posibles_sitios_pesca] of myself) at-points (vecindad_moore RADIO_EXPLORAR false)] of patch-here 
           if destino = nobody [ show "Estoy perdido" ]
-        ])
+      ])
     ]
     tipo_planeacion = "regreso" [ 
       set destino [patch-here] of mi_puerto
@@ -342,7 +349,7 @@ to pescar
     set estado "planeando"
     set tipo_planeacion "regreso"
   ][
-    ifelse (horas_en_mar / 24) > dias_maximos_en_mar [
+    ifelse horas_en_mar > horas_maximas_en_mar [
       ;; ya estuve mucho tiempo en el mar... planea el regreso
       set estado "planeando"
       set tipo_planeacion "regreso"
@@ -408,7 +415,12 @@ to desembarcar
 end
 
 to-report obtener_balance_pesca
-  set ingreso_venta_captura (obtener_captura_total_viaje * PRECIO_BIOMASA)
+;  set ingreso_venta_captura (obtener_captura_total_viaje * PRECIO_BIOMASA)
+  
+  ;; se calcula el ingreso por venta de cada sp (como la captura está 
+  ;; en toneladas y el precio en kg se multiplica por 1000
+  let ingresos_venta_captura_por_sp (map [[c p] -> c * p * 1000] obtener_captura_por_sp_viaje precios_biomasa)
+  set ingreso_venta_captura sum ingresos_venta_captura_por_sp
   set gasto_gasolina (PRECIO_LITRO_GAS * LITROS_POR_DISTANCIA * longitud_celda * distancia_recorrida) + (LITROS_POR_HORA_PESCA * length sitios_visitados)
   if saldo_subsidio_gasolina > 0 [
     ifelse saldo_subsidio_gasolina - gasto_gasolina > 0 [
@@ -423,6 +435,15 @@ to-report obtener_balance_pesca
   report ingreso_venta_captura - gasto_gasolina
 end
 
+to-report obtener_captura_por_sp_viaje
+  let suma n-values _num_especies [ 0 ]
+  foreach capturas_viaje [
+    captura_sp ->
+    set suma (map [[si ci] -> si + ci] suma captura_sp)
+  ]
+ report suma 
+end
+  
 to registrar_viaje
   ;; se registra en las listas de viajes del dia
   set viajes_finalizados_dia viajes_finalizados_dia + 1 
@@ -474,18 +495,18 @@ end
 ;; este procedimiento se actualiza mensualmente
 to actualizar_estado_economico
   (ifelse 
-    estado_economico = "viable" and salario_mensual_tripulacion <  7000 [ 
+    estado_economico = "viable" and salario_mensual_tripulacion <  SALARIO_MENSUAL_MINIMO_ACEPTABLE [ 
       set estado_economico "crisis"
       set meses_crisis 1
       set shape "barco crisis"
     ]
-    estado_economico = "crisis" and salario_mensual_tripulacion >= 7000 [ 
+    estado_economico = "crisis" and salario_mensual_tripulacion >= SALARIO_MENSUAL_MINIMO_ACEPTABLE [ 
+      set meses_crisis 0  
       set estado_economico "viable" 
-      set meses_crisis 0
       set shape "barco viable"
     ]
-    estado_economico = "crisis" and salario_mensual_tripulacion <  7000 [ 
-      ifelse meses_crisis < MESES_PARA_COLAPSO_EMBARCACION
+    estado_economico = "crisis" and salario_mensual_tripulacion <  SALARIO_MENSUAL_MINIMO_ACEPTABLE [ 
+      ifelse meses_crisis < MESES_PARA_COLAPSO
       [ set meses_crisis meses_crisis + 1 ]
       [ set estado_economico "quiebra" 
         set shape "barco quiebra" ]

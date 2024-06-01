@@ -14,14 +14,18 @@ buques-own [
   distancia_recorrida
 ]
 
+globals [
+  num_accidentes
+]
+
 to init_buques
+  set num_accidentes 0
   ask plataformas [
     hatch-buques 1 [
       init_buque myself
     ]
   ]
 end
-
 
 
 to actualizar_transitables_buques
@@ -69,15 +73,20 @@ to moverse_buque
     [ set estado "cargando" ]
   ][
     ;; avanzo una unidad de velocidad hacia mi destino
-    let _velocidad VELOCIDAD
-    let _embarcaciones_aqui count embarcaciones-here
-    (ifelse 
-      _embarcaciones_aqui >= 5  [ set _velocidad _velocidad * 0.5 ]
-      _embarcaciones_aqui >= 10 [ set _velocidad _velocidad * 0.25 ]
-      _embarcaciones_aqui >= 10 [ set _velocidad _velocidad * 0.1 ]
-    )  
+    let _velocidad 5
+;    let _embarcaciones_aqui count embarcaciones-here
+;    (ifelse 
+;      _embarcaciones_aqui >= 5  [ set _velocidad _velocidad * 0.5 ]
+;      _embarcaciones_aqui >= 10 [ set _velocidad _velocidad * 0.25 ]
+;      _embarcaciones_aqui >= 10 [ set _velocidad _velocidad * 0.1 ]
+;    )  
     let tamanio_paso _velocidad / longitud_celda
     let distancia_avanzada 0
+    
+    if any? embarcaciones-here with [ estado != "moviendose"] and random-float 1.0 < PROB_ACCIDENTE [
+      ask one-of embarcaciones-here with [ estado != "moviendose"] [ set averidado? true ]
+      set num_accidentes num_accidentes + 1
+    ]
 
     while [ distancia_avanzada < tamanio_paso ] [
       let siguiente_celda (item indice_actual_ruta ruta)
@@ -116,8 +125,11 @@ to descargando_buque
   
   set produccion_total produccion_total + carga 
   
-  let costos_transporte distancia_recorrida * COSTO_TRANSPORTE_POR_UNIDAD_DISTANCIA
-  set ganancia_acumulada_petroleo ganancia_acumulada_petroleo + (carga * PRECIO_CRUDO) - costos_transporte - COSTO_OPERACION
+  let costos_transporte distancia_recorrida * COSTO_TRANSPORTE_POR_UNIDAD_DISTANCIA * longitud_celda
+  ;; TODO: calcular bien estos costos
+  let _ganancia (carga * PRECIO_CRUDO) - costos_transporte - (count plataformas) * GASTO_EN_MANTENIMIENTO * 1000
+  set ganancia_acumulada_petroleo ganancia_acumulada_petroleo + _ganancia
+  set ganancia_mensual_petroleo ganancia_mensual_petroleo + _ganancia
   
   set carga 0
   set ruta ruta_a_plataforma

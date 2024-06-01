@@ -4,6 +4,7 @@ globals [
   celdas_tierra                  ;; agentset (patches): celdas que representan la tierra
   celdas_mar                     ;; agentset (patches): celdas que representan el mar
   
+  
   num_regiones                   ;; number: número de regiones en las que se dividen las celdas de mar
   
 ]
@@ -47,18 +48,18 @@ end
 
 
 to init_regiones
-  set num_regiones 3
+  set num_regiones 3 
   
   let _long_regiones (list LONG_REGION_1 LONG_REGION_2 LONG_REGION_3)
   let pos_x max-pxcor - ancho_tierra
   
   (foreach _long_regiones (range 1 (num_regiones + 1)) [
     [l r] ->
-    ask celdas_mar with [ pxcor <= pos_x and pxcor >= pos_x - l ][ set num_region r ]
+    ask celdas_mar with [ pxcor <= pos_x and pxcor > pos_x - l ][ set num_region r ]
     set pos_x pos_x - l
-    if pos_x < min-pxcor [ print "Advertencia: El tamaño del mundo es menor que el necesario para las longitudes de region dadas. Se completo solo con el espacio disponible." ]
+    if pos_x + 1 < min-pxcor [ print "Advertencia: El tamaño del mundo es menor que el necesario para las longitudes de region dadas. Se completo solo con el espacio disponible." ]
   ])
-  if pos_x > min-pxcor [ print "Advertencia: El tamaño del mundo es mayor que el que suman las longitudes de region dadas. Quedaron celdas de mar sin región asignada." ]
+  if pos_x >= min-pxcor [ print "Advertencia: El tamaño del mundo es mayor que el que suman las longitudes de region dadas. Quedaron celdas de mar sin región asignada." ]
   
   
 end

@@ -5,7 +5,7 @@
 * Overview
 ** Purpose
 *** What is the purpose of the study?
-To explore with different stakeholders through the use of serious games how fisheries, oil industry and conservation interact in the Campeche Bank and the tradeoffs that result form different management practices related to these three sectors.
+To understand the possible consequences of the management strategies that impact on the distribution of the shared space between the fishing industry, oil industry and conservation in the Bank of Campeche. To build in a participatory way a system of agreements towards the sustainable use of the sheared seaspace, by the use of serious games.
 *** For whom is the model designed?
 For different local stakeholders participating in workshops and interested in the usage and management of the sea landscape (fisheries leaders, fishers, conservation agencies representatives, oil industry representatives, goverment representatives).
 ** Entities, state variables and scales
@@ -24,7 +24,7 @@ The catch and oil prices are fixed.
 *** If applicable, how is space included in the model?
 Space is included implicitly, each patch represents a spatial unit and boats, turtles and biomass move in the space.
 *** What are the temporal and spatial resolutions and extents of the model?
-Each time step represents a day. Each patch represents a 10x10 km square. There are X patches representing an area of XXX km^2.
+Each time step represents a day. The size of the virtual world is 36 \times 36 pixels where each individual patch represents a 10x10 km square, representing an area of approximate 129,600 km^2.
 ** Process overview and scheduling
 *** What entity does what, and in what order?
 Daily a boat has 24 hours to carry out 5 different activities: rest at port, plan next trip, move towards a destination, fish and land at port. Each activity costs time to the boat.

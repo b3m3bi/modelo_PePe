@@ -7,11 +7,13 @@ plataformas-own [
   
   stock 
   tiempo_inactivo
+ 
 ]
 
 
 to init_plataformas
-  ask n-of NUM_PLATAFORMAS celdas_mar with [ num_region = REGION_PLATAFORMAS ][
+  ask plataformas [ die ]
+  ask n-of NUMERO_DE_PLATAFORMAS celdas_mar with [ num_region = REGION_DE_PLATAFORMAS ][
     instalar_plataforma
   ]
   actualizar_zonificacion
@@ -22,6 +24,9 @@ end
 to instalar_plataforma
   sprout-plataformas 1 [
     init_plataforma
+    ask celdas_mar at-points vecindad_moore RADIO_RESTRICCION_PLATAFORMAS true [ 
+      set zonificacion "restriccion"
+    ]
   ]
 end
 
@@ -33,11 +38,12 @@ end
 
 to extraer_hidrocarburo
     
-  set produccion_dia hidrocarburo * TASA_DECLINACION_HIDROCARBURO
-  set hidrocarburo hidrocarburo - produccion_dia
-  
-  if derramado? [
+  ifelse not derramado? [
+    set produccion_dia hidrocarburo * TASA_DECLINACION_HIDROCARBURO
+    set hidrocarburo hidrocarburo - produccion_dia
+  ][
     set produccion_dia 0
+    set stock 0
   ]
   
   set stock stock + produccion_dia

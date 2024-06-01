@@ -59,7 +59,13 @@ to colorear_celdas
       if zona_alimentacion? [ set pcolor sky - 1 ]
     ]
   ]
+  
+  if COLOREAR_POR = "habitat especie protegida" [
+    ask patches [ set pcolor scale-color sky cap_carga (max_cap_carga * 2) 0  ]
+  ]
 end
+
+
 
 to colorear_derrames
   if any? patches with [ derramado? ][
@@ -74,7 +80,7 @@ to colorear_biomasa_total_especie
   let colores_especies (list cyan sky blue)
   foreach (range _num_especies) [
     i ->
-    let max_biomasa_sp item i (read-from-string Ks)
+    let max_biomasa_sp item i _Ks
     ask patches with [ item i habitats = 1 ][
       set pcolor scale-color (item i colores_especies) (item i biomasas) (max_biomasa_sp * 2) 0
     ]

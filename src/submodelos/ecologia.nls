@@ -14,8 +14,9 @@ patches-own [
 ]
 
 
+;; este se debe ejecutar antes que init_ecologia
 to init_habitats
-  
+  set _num_especies NUM_ESPECIES
   ask patches [
     set habitats [ 0 0 0 ]
     set vecinos_habitat []
@@ -59,8 +60,8 @@ to init_habitats
   ]
 end
 
+;; este se debe ejecutar después de init_habitats
 to init_ecologia  
-  set _num_especies NUM_ESPECIES
   set _Ms read-from-string Ms
   set _Ks read-from-string Ks
   set _Rs read-from-string Rs

@@ -4,6 +4,7 @@ globals [
   mensaje_fin_juego            ;; string: mensaje que recibe el usuario cuando se detiene la simulación porque no alcanzó el objetivo
   
   umbrales_biomasa_sostenible  ;; list (number): lista donde cada entrada representa el umbral de biomasa sostenible para la especie i
+  
 ]
 
 to init_umbrales_juego
@@ -23,18 +24,53 @@ to init_umbrales_juego
   ]
 end
 
+
+to init_variables_jugables
+   
+  set NUM_EMBARCACIONES_PUERTO_1 NUMERO_EMBARCACIONES
+  
+  (ifelse
+    REGION_DONDE_PESCAR = "Region 1: camarón" [
+      set REGION_PESCA_EMBARCACIONES_PUERTO_1  1
+      set ARTES_PESCA_PUERTO_1 "ESPECIE 1"
+    ]
+    REGION_DONDE_PESCAR = "Region 2: sierra" [
+      set REGION_PESCA_EMBARCACIONES_PUERTO_1  2
+      set ARTES_PESCA_PUERTO_1 "ESPECIE 2"
+    ]
+    REGION_DONDE_PESCAR = "Region 3: huachinango" [
+      set REGION_PESCA_EMBARCACIONES_PUERTO_1  3
+      set ARTES_PESCA_PUERTO_1 "ESPECIE 3"
+    ])
+  
+  (ifelse 
+    TIPO_DE_EMBARCACIONES = "pequeña escala (1 ton, 3 tripulantes)" [
+      set CAPACIDAD_MAXIMA_PUERTO_1 1
+      set CAPTURABILIDAD_PUERTO_1 0.01
+      set TAMANIO_TRIPULACION_PUERTO_1 3
+    ]
+    TIPO_DE_EMBARCACIONES = "semi-industrial (10 ton, 5 tripulantes)" [
+      set CAPACIDAD_MAXIMA_PUERTO_1 10
+      set CAPTURABILIDAD_PUERTO_1 0.05
+      set TAMANIO_TRIPULACION_PUERTO_1 5
+    ])
+    
+  set HORAS_MAXIMAS_EN_MAR_PUERTO_1 MAXIMA_JORNADA_DE_PESCA  
+end
+
+
 to revisar_umbrales_juego
   foreach range _num_especies [
     i ->
     if sum[item i biomasas] of patches < (item i umbrales_biomasa_sostenible)  [ 
       set perdio? true 
       set mensaje_fin_juego (word "Colapso biológico: se sobreprescó a la especie " i ". La población se redujo al " UMBRAL_BIOMASA_SOSTENIBLE "%.")
-    ]
+    ] 
   ]
   
-  if count embarcaciones with [ not activo? ] > (UMBRAL_NUMERO_EMBARCACIONES / 100) * count embarcaciones [
+  if count embarcaciones with [ not activo? ] > (UMBRAL_EMBARCACIONES_QUIEBRA / 100) * count embarcaciones [
     set perdio? true
-    set mensaje_fin_juego (word "Colapso de la industria pesquera: el " UMBRAL_NUMERO_EMBARCACIONES "% de las embarcaciones quebraron economicamente.")
+    set mensaje_fin_juego (word "Colapso de la industria pesquera: el " UMBRAL_EMBARCACIONES_QUIEBRA "% de las embarcaciones quebraron economicamente.")
   ]
   
   if any? plataformas and ganancia_acumulada_petroleo < 0 [
@@ -43,3 +79,16 @@ to revisar_umbrales_juego
   ]
 end
 
+
+to init_ronda
+  if RONDA = "Ronda 1 (sector pesquero)" [
+    set NUMERO_DE_PLATAFORMAS 10
+    set REGION_DE_PLATAFORMAS 2
+    set RADIO_RESTRICCION_PLATAFORMAS 3
+    
+    ask patches with [ pxcor <= 35 and pxcor > 25  and pycor < 15][
+      set zonificacion "protegido"
+    ]
+    actualizar_zonificacion
+  ]
+end

@@ -1,14 +1,14 @@
 breed [ puertos puerto ]
 
 puertos-own [
-  num_puerto                    ;; number: identificador del puerto
-  capturas_dia_puerto           ;; list (number): lista con todas las capturas en un dia de las embarcaciones que llegan a un puerto
-  ganancias_dia_puerto          ;; list (number): lista con todas las ganancias en un día de las embarcaciones que llegan a un puerto
-  horas_en_mar_dia_puerto       ;; list (number): lista con todas las horas en el mar en un día de las embarcaciones que llegan a un puerto
-  ganancias_por_hora_dia_puerto ;; list (number): lista con todas las ganancias por hora en un dia de las embarcaciones que llegan a un puerto
-  gastos_gasolina_dia_puerto    ;; list (number): lista con todos los gastos de gasolina en un dia de las embarcaciones que llegan a un puerto
+  num_puerto                       ;; number: identificador del puerto
+  capturas_dia_puerto              ;; list (number): lista con todas las capturas en un dia de las embarcaciones que llegan a un puerto
+  ganancias_dia_puerto             ;; list (number): lista con todas las ganancias en un día de las embarcaciones que llegan a un puerto
+  horas_en_mar_dia_puerto          ;; list (number): lista con todas las horas en el mar en un día de las embarcaciones que llegan a un puerto
+  ganancias_por_hora_dia_puerto    ;; list (number): lista con todas las ganancias por hora en un dia de las embarcaciones que llegan a un puerto
+  gastos_gasolina_dia_puerto       ;; list (number): lista con todos los gastos de gasolina en un dia de las embarcaciones que llegan a un puerto
   distancias_recorridas_dia_puerto ;; list (number): lista con todas las distancias recorridas por las embarcaciones que llegan a un puerto en un día
-  viajes_finalizados_dia_puerto ;; number: número de viajes que se registran como finalizados al día
+  viajes_finalizados_dia_puerto    ;; number: número de viajes que se registran como finalizados al día
 ]
 
 to init_puerto
