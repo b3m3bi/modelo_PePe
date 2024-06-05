@@ -53,27 +53,6 @@ to-report obtener_indice_max [ lista ]
   report position maximo lista
 end
 
-
-to formar_vecindades_zonas
-  ask patches [ set num_zona -999 ]
-  let num_grupo 0
-  ask patches [
-    if (zonificacion != "libre" and zonificacion != "NA" and num_zona = -999) [
-      formar_vecindad_zona num_grupo
-      set num_grupo num_grupo + 1
-    ]
-  ]
-  set num_zonas max [ num_zona] of patches
-end
-
-to formar_vecindad_zona [ _num_zona ]
-  set num_zona _num_zona
-  ask neighbors4 with [ zonificacion = [zonificacion] of myself and num_zona = -999 ][
-    formar_vecindad_zona _num_zona
-  ]
-end
-
-
 to-report encontrar [x]
   let y x
   while [ (item y etiquetas) != y ][
@@ -99,7 +78,7 @@ to formar_componentes
   foreach sort patches [
     p ->
     ask p [
-      if zonificacion = "libre" or tipo = "puerto" [
+      if zonificacion = "libre" or zonificacion = "protegido" or tipo = "puerto" [
         let atras patch-at-heading-and-distance 270 1
         let arriba patch-at-heading-and-distance 0 1
         (ifelse 
@@ -128,7 +107,7 @@ end
 
 to-report todos_los_sitios_son_accesibles?
   formar_componentes
-  let celdas_navegables (patch-set celdas_libre [patch-here] of puertos)
+  let celdas_navegables patches with [zonificacion = "libre" or zonificacion = "protegido" or tipo = "puerto" ]
   ifelse length remove-duplicates [etiqueta] of celdas_navegables = 1
   [ report true ]
   [ report false ]

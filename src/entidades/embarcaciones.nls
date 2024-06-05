@@ -27,7 +27,6 @@ embarcaciones-own [
   saldo_subsidio_gasolina          ;; number: saldo disponible para un pescador para pagar la gasolina
   gasto_gasolina                   ;; number: gasto de gasolina de un pescador por viaje
   ingreso_venta_captura            ;; number: ingreso de la venta de la captura de un pescador por viaje
-  artes_pesca                      ;; string: especie(s) que pesca una embarcacion
   capturabilidad                   ;; number: porcentaje de la biomasa disponible en una celda que pesca una embarcación cuando despliega sus artes de pesca
   capacidad_maxima                 ;; number: capacidad de carga de biomasa máxima que tiene una embarcación
   horas_maximas_en_mar             ;; number: número máximo de horas que una embarcación pasa en el mar
@@ -38,6 +37,8 @@ embarcaciones-own [
   activo?                          ;; boolean: indica si una embarcación está activa o no
   meses_crisis                     ;; number: indica cuantos meses lleva una embarcación en estado de crisis
   averidado?
+  inactivo_por_veda?               ;; boolean: indica si una embarcación inactiva por respetar una veda
+  especies_pescadas                ;; list (number): indica que se pesca (1) o no (0) a la especie en el índice
 ]
 
 globals [
@@ -74,21 +75,21 @@ to init_embarcacion [_puerto _reg_pesca]
     [num_puerto] of mi_puerto = 0 [
       set capturabilidad CAPTURABILIDAD_PUERTO_1
       set capacidad_maxima CAPACIDAD_MAXIMA_PUERTO_1
-      set artes_pesca ARTES_PESCA_PUERTO_1
+      set especies_pescadas read-from-string ESPECIES_PESCA_PUERTO_1
       set horas_maximas_en_mar HORAS_MAXIMAS_EN_MAR_PUERTO_1
       set tamanio_tripulacion TAMANIO_TRIPULACION_PUERTO_1
     ]
     [num_puerto] of mi_puerto = 1 [
       set capturabilidad CAPTURABILIDAD_PUERTO_2
       set capacidad_maxima CAPACIDAD_MAXIMA_PUERTO_2
-      set artes_pesca ARTES_PESCA_PUERTO_2
+      set especies_pescadas read-from-string ESPECIES_PESCA_PUERTO_2
       set horas_maximas_en_mar HORAS_MAXIMAS_EN_MAR_PUERTO_2
       set tamanio_tripulacion TAMANIO_TRIPULACION_PUERTO_2
     ]
     [num_puerto] of mi_puerto = 2 [
       set capturabilidad CAPTURABILIDAD_PUERTO_3
       set capacidad_maxima CAPACIDAD_MAXIMA_PUERTO_3
-      set artes_pesca ARTES_PESCA_PUERTO_3
+      set especies_pescadas read-from-string ESPECIES_PESCA_PUERTO_3
       set horas_maximas_en_mar HORAS_MAXIMAS_EN_MAR_PUERTO_3
       set tamanio_tripulacion TAMANIO_TRIPULACION_PUERTO_3
     ])
@@ -98,6 +99,7 @@ to init_embarcacion [_puerto _reg_pesca]
   set activo? true
   set meses_crisis 0
   set averidado? false
+  set inactivo_por_veda? false
   
   set shape "barco viable" 
   set color item ([num_puerto] of mi_puerto) colores_puertos_embarcaciones
@@ -105,12 +107,12 @@ to init_embarcacion [_puerto _reg_pesca]
 end
 
 to init_embarcaciones
-  
+  print "Inicializando embarcaciones..."
   let nums_embarcaciones (list NUM_EMBARCACIONES_PUERTO_1 NUM_EMBARCACIONES_PUERTO_2 NUM_EMBARCACIONES_PUERTO_3)
   let regs_pesca (list REGION_PESCA_EMBARCACIONES_PUERTO_1 REGION_PESCA_EMBARCACIONES_PUERTO_2 REGION_PESCA_EMBARCACIONES_PUERTO_3) 
   foreach (range NUM_PUERTOS) [
     i -> 
-    ask puerto i [
+    ask puertos with [num_puerto = i] [
       hatch-embarcaciones (item i nums_embarcaciones) [
         init_embarcacion myself (item i regs_pesca)
       ]
@@ -126,15 +128,13 @@ to init_embarcaciones
       print (word "Advertencia: No hay suficientes embarcaciones en el puerto " [num_puerto] of mi_puerto " para formar NUM_AMIGOS = " NUM_AMIGOS " amistades. No se creará ninguna amistad para las embarcaciones de este puerto." )
     ]
   ]
-  
   set precios_biomasa read-from-string PRECIOS_KILO_BIOMASA
+  print "OK"
 end
 
-to init_registros_mensuales_embarcaciones
-  ask embarcaciones [
-    set ganancia_mensual 0
-    set salario_mensual_tripulacion 0
-  ]
+to reset_registros_mensuales_embarcacion
+  set ganancia_mensual 0
+  set salario_mensual_tripulacion 0
 end
   
 to dinamica_iteracion_embarcacion
@@ -157,22 +157,27 @@ to ejecutar_estado
 end
 
 to descansar
-  ifelse tiempo_descansado < HORAS_DESCANSAR or hay_veda [
-    ;; falta descansar... se descansa una unidad de tiempo
-    set tiempo_descansado tiempo_descansado + 1
-    set tiempo_restante_iteracion tiempo_restante_iteracion - 1
-  ][
-    ;; ya descansé suficiente... planeo mi viaje
-    set estado "planeando"
+  ifelse hay_veda [ set inactivo_por_veda? true ][ set inactivo_por_veda? false ]
+  ifelse not inactivo_por_veda? [
+    ifelse tiempo_descansado < HORAS_DESCANSAR  [
+      ;; falta descansar... se descansa una unidad de tiempo
+      set tiempo_descansado tiempo_descansado + 1
+      set tiempo_restante_iteracion tiempo_restante_iteracion - 1
+    ][
+      ;; ya descansé suficiente... planeo mi viaje
+      set estado "planeando"
     set tipo_planeacion "inicio"
+    ]
+  ][
+    set tiempo_restante_iteracion tiempo_restante_iteracion - 1
   ]
 end
 
 to planear
   (ifelse 
     tipo_planeacion = "inicio" [
-      set posibles_sitios_pesca celdas_libre with [num_region = [region_pesca] of myself]
       set destino seleccionar_sitio_pesca
+      set ruta item [num_puerto] of mi_puerto [rutas_hacia_mi] of destino
     ]
     tipo_planeacion = "continuar" and CAMBIAR_SITIO_PESCA? [
       (ifelse 
@@ -186,13 +191,15 @@ to planear
           set destino one-of [([posibles_sitios_pesca] of myself) at-points (vecindad_moore RADIO_EXPLORAR false)] of patch-here 
           if destino = nobody [ show "Estoy perdido" ]
       ])
+      set ruta (obtener_ruta_A_star_embarcacion patch-here destino)
     ]
     tipo_planeacion = "regreso" [ 
       set destino [patch-here] of mi_puerto
+      set ruta item [num_puerto] of mi_puerto [rutas_hacia_puertos] of patch-here
   ])
   
   ;; se calcula la ruta al destino elegido
-  set ruta (obtener_ruta_A_star patch-here destino)
+;  set ruta (obtener_ruta_A_star patch-here destino)
   
   set indice_actual_ruta 0
   
@@ -285,29 +292,14 @@ end
 
 to pescar
   ;; pesco...
-  revisar_arte_pesca_corresponde_a_num_especies
-  ;; cuando se pesca de manera indistinta a las especies, entonces la capturabilidad se calcula con respecto a
-  ;; su proporción en el parche, en caso de que no, toda la capturabilidad se calcula solo con la especie capturada
+  ;; la capturabilidad se calcula con respecto a la proporción de las especies pescables en el parche
+  
+  let biomasa_total_especies_pescables_en_sitio sum ( map [[b ep] -> b * ep] biomasas especies_pescadas)
   let proporcion_spp_pescables_en_sitio n-values _num_especies [0]
-  (ifelse
-    artes_pesca = "ESPECIE 1 y ESPECIE 2 y ESPECIE 3" [
-      ;; la capturabilidad se calcula con respecto a la proporción en que estan las especies pescables en el parche
-      ;; solo si si hay algo que pescar, sino la capturabilidad es cero...
-      if sum biomasas > 0 [
-        set proporcion_spp_pescables_en_sitio (map [ b -> b / (sum biomasas)] biomasas)
-      ]
-    ]
-    ;; la capturabilidad se calcula solo con la especie que se pesca...
-    artes_pesca = "ESPECIE 1" [
-      set proporcion_spp_pescables_en_sitio replace-item 0 proporcion_spp_pescables_en_sitio 1
-    ]
-    artes_pesca = "ESPECIE 2" [
-      set proporcion_spp_pescables_en_sitio replace-item 1 proporcion_spp_pescables_en_sitio 1
+  if biomasa_total_especies_pescables_en_sitio > 0 [
+    set proporcion_spp_pescables_en_sitio  (map [[b ep] -> (b * ep) / biomasa_total_especies_pescables_en_sitio] biomasas especies_pescadas)
   ]
-    artes_pesca = "ESPECIE 3" [
-      set proporcion_spp_pescables_en_sitio replace-item 2 proporcion_spp_pescables_en_sitio 1
-  ])
-
+  
   let capturabilidades_sitio (map [ p -> p * CAPTURABILIDAD] proporcion_spp_pescables_en_sitio)
   let capturas_sitio (map [[b c] -> b * c] biomasas capturabilidades_sitio)
   set biomasas (map [[b c] -> b - c] biomasas capturas_sitio)
@@ -359,18 +351,6 @@ to pescar
       set tipo_planeacion "continuar"
     ]
   ]
-end
-
-to revisar_arte_pesca_corresponde_a_num_especies
-  (ifelse
-    _num_especies = 1 and (ARTES_PESCA = "ESPECIE 2" or ARTES_PESCA = "ESPECIE 3") [
-      print "Advertencia: Solo hay una especie, el parámetro ARTES_PESCA no puede tomar el valor ESPECIE 2 o ESPECIE 3. Se asignará de forma automáticamente el valor TODAS."
-      set ARTES_PESCA "TODAS"
-    ]
-    _num_especies = 2 and (ARTES_PESCA = "ESPECIE 3") [
-      print "Advertencia: Solo hay dos especies, el parámetro ARTES_PESCA no puede tomar el valor ESPECIE 3. Se asignará de forma automáticamente el valor TODAS."
-      set ARTES_PESCA "TODAS"
-    ])
 end
 
 to-report obtener_captura_total_viaje
@@ -517,7 +497,7 @@ end
 ;; este procdimiento se debe ejecutar después de actualizar la zonificación
 ;; y antes de recalcular una ruta
 to actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados
-  set posibles_sitios_pesca celdas_libre with [num_region = [region_pesca] of myself]
+  set posibles_sitios_pesca celdas_libre with [num_region = [region_pesca] of myself ]
   let nuevo_mejor_sitio one-of posibles_sitios_pesca with-min [ distance [ mejor_sitio] of myself ]
   if nuevo_mejor_sitio = nobody [ show "Advertencia: No puedo encontrar un nuevo mejor sitio" ]
   foreach sitios_visitados [
@@ -528,7 +508,7 @@ to actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados
       show "Cambié mis sitios visitados"
     ]
   ]
-  if member? mejor_sitio celdas_restriccion or member? mejor_sitio celdas_protegido  [
+  if member? mejor_sitio celdas_restriccion or member? mejor_sitio celdas_protegido [
     set mejor_sitio nuevo_mejor_sitio
     show "Cambié mi mejor sitio"
   ]
@@ -543,7 +523,7 @@ to actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados
     set estado "moviendose" 
   ]
   if estado = "moviendose" [
-    set ruta obtener_ruta_A_star patch-here destino
+    set ruta obtener_ruta_A_star_embarcacion patch-here destino
     set indice_actual_ruta 0
   ]
   
@@ -569,18 +549,3 @@ to-report hay_veda
     [report false ]
     )
 end
-
-
-
-;to actualizar_memoria_EG
-;  let indice [id] of (item 0 sitios_visitados)
-;  set conteo replace-item indice conteo ((item indice conteo) + 1)
-;  let n (item indice conteo)
-;
-;  let valor item indice valores
-;  let nuevo_valor valor + (1 / n) * (ganancia_por_hora - valor)
-;  set valores replace-item indice valores nuevo_valor
-;
-;  let id_max_valores obtener_indice_max valores
-;  set mejor_sitio one-of celdas_mar with [id = id_max_valores]
-;end

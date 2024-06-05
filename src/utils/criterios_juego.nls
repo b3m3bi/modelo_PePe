@@ -2,45 +2,108 @@ globals [
   perdio?                      ;; boolean: indica si el jugador superó los límites dados
   num_celdas_con_spp           ;; list (number): lista donde cada entrada representa el número de celdas que tienen a la especie i
   mensaje_fin_juego            ;; string: mensaje que recibe el usuario cuando se detiene la simulación porque no alcanzó el objetivo
-  
   umbrales_biomasa_sostenible  ;; list (number): lista donde cada entrada representa el umbral de biomasa sostenible para la especie i
   
 ]
 
-to init_umbrales_juego
-  set perdio? false
-  set mensaje_fin_juego ""
-  
-  set num_celdas_con_spp []
-  set umbrales_biomasa_sostenible []
-  
-  foreach range _num_especies [
-    i ->
-    let num_celdas_con_sp count patches with [ (item i habitats) = 1 ]
-    set num_celdas_con_spp lput num_celdas_con_sp num_celdas_con_spp
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;; PROCEDIMIENTOS INICIALIZACION ;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Inicializa las variables jugables restringidas de cada ronda
+;; debe ser el primer procedimiento en ejecutarse
+to init_ronda
+  print (word "Inicializando variables de ronda: " RONDA "...")
+  if RONDA = "Ronda 1 (sector pesquero)" [
+    ;; sector pesquero
+;    set NUMERO_EMBARCACIONES 300
+;    set REGION_DONDE_PESCAR "Region 2: escama"
+;    set TIPO_DE_EMBARCACIONES "pequeña escala (1 ton, 3 tripulantes)"
+;    set MAXIMA_JORNADA_DE_PESCA 12
+    ;; sector petrolero
+    set NUMERO_DE_PLATAFORMAS 10
+    set REGION_DE_PLATAFORMAS 2
+    set RADIO_RESTRICCION_PLATAFORMAS 3
+    set SUBSIDIO_MENSUAL_GASOLINA 0
+    set GASTO_EN_MANTENIMIENTO 0
+    ;; sector conservación
+    set ANCHO_ZONA_PROTEGIDA 10
+    set LARGO_ZONA_PROTEGIDA 10
+    set VEDA_ENE_FEB false
+    set VEDA_MAR_ABR false
+    set VEDA_MAY_JUN false
+    set VEDA_JUL_AGO false
+    set VEDA_SEP_OCT false
+    set VEDA_NOV_DIC false
+  ]
     
-    let umbral_biomasa ( UMBRAL_BIOMASA_SOSTENIBLE / 100) * (item i num_celdas_con_spp) * (item i read-from-string Ks)
-    set umbrales_biomasa_sostenible lput umbral_biomasa umbrales_biomasa_sostenible
+  if RONDA = "Ronda 1 (sector petrolero)" [
+    ;; sector pesquero
+    set NUMERO_EMBARCACIONES 300
+    set REGION_DONDE_PESCAR "Region 2: escama"
+    set TIPO_DE_EMBARCACIONES "pequeña escala (1 ton, 3 tripulantes)"
+    set MAXIMA_JORNADA_DE_PESCA 12
+    ;; sector petrolero
+;    set NUMERO_DE_PLATAFORMAS 10
+;    set REGION_DE_PLATAFORMAS 2
+;    set RADIO_RESTRICCION_PLATAFORMAS 3
+;    set SUBSIDIO_MENSUAL_GASOLINA 0
+;    set GASTO_EN_MANTENIMIENTO 0
+    ;; sector conservación
+    set ANCHO_ZONA_PROTEGIDA 10
+    set LARGO_ZONA_PROTEGIDA 10
+    set VEDA_ENE_FEB false
+    set VEDA_MAR_ABR false
+    set VEDA_MAY_JUN false
+    set VEDA_JUL_AGO false
+    set VEDA_SEP_OCT false
+    set VEDA_NOV_DIC false
+  ]
+    
+  if RONDA = "Ronda 1 (sector conservacion)" [
+    ;; sector pesquero
+    set NUMERO_EMBARCACIONES 300
+    set REGION_DONDE_PESCAR "Region 2: escama"
+    set TIPO_DE_EMBARCACIONES "pequeña escala (1 ton, 3 tripulantes)"
+    set MAXIMA_JORNADA_DE_PESCA 12
+    ;; sector petrolero
+    set NUMERO_DE_PLATAFORMAS 10
+    set REGION_DE_PLATAFORMAS 2
+    set RADIO_RESTRICCION_PLATAFORMAS 3
+    set SUBSIDIO_MENSUAL_GASOLINA 0
+    set GASTO_EN_MANTENIMIENTO 0
+    ;; sector conservación
+;    set ANCHO_ZONA_PROTEGIDA 10
+;    set LARGO_ZONA_PROTEGIDA 10
+;    set VEDA_ENE_FEB false
+;    set VEDA_MAR_ABR false
+;    set VEDA_MAY_JUN false
+;    set VEDA_JUL_AGO false
+;    set VEDA_SEP_OCT false
+;    set VEDA_NOV_DIC false
   ]
 end
 
-
+;; Inicializa las variables jugables de acuerdo a los nombres 
+;; asignados en la interfaz. Debe ejecutarse después de inicializar 
+;; las variables de la ronda (init_ronda)
 to init_variables_jugables
-   
+  print "Inicializando variables jugables..."
+  
   set NUM_EMBARCACIONES_PUERTO_1 NUMERO_EMBARCACIONES
   
   (ifelse
     REGION_DONDE_PESCAR = "Region 1: camarón" [
       set REGION_PESCA_EMBARCACIONES_PUERTO_1  1
-      set ARTES_PESCA_PUERTO_1 "ESPECIE 1"
+      set ESPECIES_PESCA_PUERTO_1 "[ 1 0 0 ]"
     ]
-    REGION_DONDE_PESCAR = "Region 2: sierra" [
+    REGION_DONDE_PESCAR = "Region 2: escama" [
       set REGION_PESCA_EMBARCACIONES_PUERTO_1  2
-      set ARTES_PESCA_PUERTO_1 "ESPECIE 2"
+      set ESPECIES_PESCA_PUERTO_1 "[ 0 1 0 ]"
     ]
     REGION_DONDE_PESCAR = "Region 3: huachinango" [
       set REGION_PESCA_EMBARCACIONES_PUERTO_1  3
-      set ARTES_PESCA_PUERTO_1 "ESPECIE 3"
+      set ESPECIES_PESCA_PUERTO_1 "[ 0 0 1 ]"
     ])
   
   (ifelse 
@@ -58,6 +121,33 @@ to init_variables_jugables
   set HORAS_MAXIMAS_EN_MAR_PUERTO_1 MAXIMA_JORNADA_DE_PESCA  
 end
 
+;; TODO: crear un procedimiento init_parametros que inicialice las variables
+;; fijas y que sea de precaución por si se modifican accidentalmente los parámetros
+
+to init_umbrales_juego
+  print "Inicializando umbrales del juego..."
+  set perdio? false
+  set mensaje_fin_juego ""
+  
+  set num_celdas_con_spp []
+  set umbrales_biomasa_sostenible []
+  
+  ;; se calcula cuantas celdas ocupa cada especie para a partir de ahí determinar
+  ;; la cantidad de biomasa que tiene cada una y sus umbrales
+  foreach range _num_especies [
+    i ->
+    let num_celdas_con_sp count patches with [ (item i habitats) = 1 ]
+    set num_celdas_con_spp lput num_celdas_con_sp num_celdas_con_spp
+    
+    let umbral_biomasa ( UMBRAL_BIOMASA_SOSTENIBLE / 100) * (item i num_celdas_con_spp) * (item i read-from-string Ks)
+    set umbrales_biomasa_sostenible lput umbral_biomasa umbrales_biomasa_sostenible
+  ]
+  print "OK"
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;; PROCEDIMIENTOS EJECUTAR ;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to revisar_umbrales_juego
   foreach range _num_especies [
@@ -68,27 +158,14 @@ to revisar_umbrales_juego
     ] 
   ]
   
-  if count embarcaciones with [ not activo? ] > (UMBRAL_EMBARCACIONES_QUIEBRA / 100) * count embarcaciones [
+  let prop_embarcaciones_en_quiebra count embarcaciones with [ estado_economico = "quiebra" ] / count embarcaciones
+  if prop_embarcaciones_en_quiebra >= (PORCENTAJE_MAXIMO_EMBARCACIONES_QUIEBRA / 100) [
     set perdio? true
-    set mensaje_fin_juego (word "Colapso de la industria pesquera: el " UMBRAL_EMBARCACIONES_QUIEBRA "% de las embarcaciones quebraron economicamente.")
+    set mensaje_fin_juego (word "Colapso de la industria pesquera: el " round (prop_embarcaciones_en_quiebra * 100) "% de las embarcaciones quebraron economicamente.")
   ]
   
   if any? plataformas and ganancia_acumulada_petroleo < 0 [
     set perdio? true 
     set mensaje_fin_juego (word "Colapso de la industria petrolera. La producción petrolera ya no es rentable." )
-  ]
-end
-
-
-to init_ronda
-  if RONDA = "Ronda 1 (sector pesquero)" [
-    set NUMERO_DE_PLATAFORMAS 10
-    set REGION_DE_PLATAFORMAS 2
-    set RADIO_RESTRICCION_PLATAFORMAS 3
-    
-    ask patches with [ pxcor <= 35 and pxcor > 25  and pycor < 15][
-      set zonificacion "protegido"
-    ]
-    actualizar_zonificacion
   ]
 end

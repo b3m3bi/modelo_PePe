@@ -6,26 +6,45 @@ plataformas-own [
   mi_puerto
   
   stock 
-  tiempo_inactivo
- 
+  tiempo_inactivo 
 ]
 
 
 to init_plataformas
-  ask plataformas [ die ]
-  ask n-of NUMERO_DE_PLATAFORMAS celdas_mar with [ num_region = REGION_DE_PLATAFORMAS ][
-    instalar_plataforma
+  print "Inicializando plataformas..."
+  
+  let intentos_crear_mundo 1
+  let intentos_maximos 100
+  print (word "-> Intento " intentos_crear_mundo " de crear un mundo jugable.")
+  instalar_plataformas
+  while [ not todos_los_sitios_son_accesibles? and (intentos_crear_mundo <= intentos_maximos) ][
+    ask plataformas [ die ]
+    ask celdas_mar with [ zonificacion = "restriccion" ][ set zonificacion "libre" ]
+    instalar_plataformas
+    set intentos_crear_mundo intentos_crear_mundo + 1
+    print (word "-> Intento " intentos_crear_mundo " de crear un mundo jugable.")
+  ]
+  if intentos_crear_mundo > intentos_maximos [ 
+    user-message "Es difícil generar un mapa con los parámetros introducidos. /n Los mapas geneados no son jugables (los pescadores no se pueden mover en él). /n Intenta inicializar de nuevo el modelo y/o cambiar los parámetros del modelo."
+    stop
   ]
   actualizar_zonificacion
-  actualizar_transitables
-  ask embarcaciones [ actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados ]
+  print "OK"
+end
+
+to instalar_plataformas 
+  ask n-of NUMERO_DE_PLATAFORMAS celdas_mar with [ num_region = REGION_DE_PLATAFORMAS and zonificacion = "libre" ][
+    instalar_plataforma
+  ]
 end
 
 to instalar_plataforma
   sprout-plataformas 1 [
     init_plataforma
     ask celdas_mar at-points vecindad_moore RADIO_RESTRICCION_PLATAFORMAS true [ 
-      set zonificacion "restriccion"
+      if zonificacion != "protegido" [
+        set zonificacion "restriccion"
+      ]
     ]
   ]
 end
@@ -34,6 +53,10 @@ to init_plataforma
   set shape "plataforma"
   set color gray - 4
   set mi_puerto min-one-of puertos [distance myself]
+  set produccion_dia 0
+  set ganancia_dia 0
+  set stock 0
+  set tiempo_inactivo 0
 end
 
 to extraer_hidrocarburo
@@ -47,10 +70,4 @@ to extraer_hidrocarburo
   ]
   
   set stock stock + produccion_dia
-  
-;  let vecinos_no_restringidos count celdas_libre at-points vecindad_moore 4 true
-;  let costos_operacion vecinos_no_restringidos * COSTO_OPERACION_POR_CELDA
-;  let costos_transporte (distance mi_puerto) * COSTO_TRANSPORTE_POR_UNIDAD_DISTANCIA
-  
-;  set ganancia_dia produccion_dia * PRECIO_CRUDO - costos_operacion - costos_transporte
 end

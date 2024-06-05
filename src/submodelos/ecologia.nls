@@ -1,80 +1,74 @@
 globals [
   _num_especies            ;; number: duplicación de variable NUM_ESPECIES de la interfaz (se usa para no romper el modelo si el usuario la mueve)
   _Ms                      ;; list (number): lista con las tasas de migración de cada espece
-  _Rs                      ;; list (number): lista con las tasas de crecimiento de cada espece
+  _Rs_min                  ;; list (number): lista con las tasas de crecimiento mínimas de cada especie
+  _Rs_max                  ;; list (number): lista con las tasas de crecimiento máximas de cada especie
   _Ks                      ;; list (number): lista con capacidad de carga de cada espece
+  _dias_reproduccion       ;; list (number): lista con los días de reproducción de cada especie
+  _especies_pescadas       ;; list (number): lista que indica si una especie es pescada (1) o no (0)
+  celdas_habitat_especies 
 ]
 
-patches-own [
-  biomasas                 ;; list (number): lista con la cantidad de biomasa de cada especie
-  habitats                 ;; list (number): lista que indica si la especie en un índice peude vivir (1) o no (0) en una celda
-  cambio_biomasas          ;; list (number): lista con la cantidad de cambio de la biomasa por la difusión de y hacia las celdas vecinas
-  
-  vecinos_habitat          ;; list (agentset (patches)): lista donde cada elemento es conjunto de celdas vecinas que son de tipo mar y que son habitat de la especie del índice 
-]
-
-
-;; este se debe ejecutar antes que init_ecologia
-to init_habitats
+to init_ecologia
+  print "Inicializando ecología..."
+  ;; se inicializan los parámetros
   set _num_especies NUM_ESPECIES
+  set _Ms read-from-string Ms
+  set _Ks read-from-string Ks
+  set _Rs_min read-from-string Rs_min
+  set _Rs_max read-from-string Rs_max
+  set _dias_reproduccion read-from-string DIAS_REPRODUCCION
+  set celdas_habitat_especies []
+  
+  ;; se llenan las propiedades de las celdas
   ask patches [
     set habitats [ 0 0 0 ]
-    set vecinos_habitat []
+    set cambio_biomasas n-values _num_especies [0]
   ]
   
-  if DISTRIBUCION_ESPECIES = "homogenea" [
-    ask celdas_mar [
-      set habitats [ 1 1 1 ]
+  ;; se crean las zonas de hábitat de las diferentes especies
+  (ifelse 
+    DISTRIBUCION_ESPECIES = "homogenea" [ 
+      ask celdas_mar [ set habitats [ 1 1 1 ] ]
     ]
-  ]
-
-  if DISTRIBUCION_ESPECIES = "partes iguales" [
-    let tamanio_region round (world-height / _num_especies)
-    let pos_y min-pycor
-    foreach range _num_especies [
-      i ->
-      let hab [ 0 0 0 ]
-      set hab replace-item i hab 1
-      ask celdas_mar with [ pycor >= pos_y ][
-        set habitats hab
-      ]
-      set pos_y pos_y + tamanio_region
-    ]
-  ]
-  
-  if DISTRIBUCION_ESPECIES = "dif spp en cada region" [
-    set NUM_ESPECIES 3
-    foreach (range 3) [
-      i ->
-      ask patches with [ num_region = i + 1 ][
-        set habitats replace-item i habitats 1
+    DISTRIBUCION_ESPECIES = "partes iguales" [
+      let tamanio_region round (world-height / _num_especies)
+      let pos_y min-pycor
+      foreach range _num_especies [
+        i ->
+        let hab [ 0 0 0 ]
+        set hab replace-item i hab 1
+        ask celdas_mar with [ pycor >= pos_y ][
+          set habitats hab
+        ]
+        set pos_y pos_y + tamanio_region
       ]
     ]
-  ]
+    DISTRIBUCION_ESPECIES = "dif spp en cada region" [
+      set NUM_ESPECIES 3
+      foreach (range 3) [
+        i ->
+        ask patches with [ num_region = i + 1 ][
+          set habitats replace-item i habitats 1
+        ]
+      ]
+    ]
+  )
   
+  ;; se calculan los vecinos de una celda que corresponden al mismo hábitat
+  ;; y los conjuntos de celdas de un hábitat
   foreach range NUM_ESPECIES [
     i -> 
     ask patches [
       set vecinos_habitat lput (neighbors4 with [ tipo = "mar" and (item i habitats = [item i habitats] of myself)]) vecinos_habitat
     ]
+    set celdas_habitat_especies lput (patches with [ item i habitats = 1 ]) celdas_habitat_especies 
   ]
-end
-
-;; este se debe ejecutar después de init_habitats
-to init_ecologia  
-  set _Ms read-from-string Ms
-  set _Ks read-from-string Ks
-  set _Rs read-from-string Rs
   
-  ask patches [
-    set cambio_biomasas n-values _num_especies [0]
-  ]
-  ask celdas_tierra [
-    set biomasas n-values _num_especies [0]
-  ]
-  ask celdas_mar [
-    set biomasas sublist (map [[b h] -> b * h] (read-from-string BIOMASAS_INICIALES) habitats) 0 _num_especies
-  ]
+  ;; se crea la biomasa de cada especie en cada celda
+  ask celdas_tierra [ set biomasas n-values _num_especies [0] ]
+  ask celdas_mar [ set biomasas sublist (map [[b h] -> b * h] (read-from-string BIOMASAS_INICIALES) habitats) 0 _num_especies ]
+  print "OK"
 end
 
 to dispersion
@@ -92,13 +86,22 @@ to dispersion
 end
 
 to dinamica_poblacional
-  ask celdas_mar [
-    foreach range _num_especies [
-      i ->
+  let i -999
+  (ifelse 
+    (time:get "dayofyear" fecha = item 0 _dias_reproduccion and _num_especies > 0) [ set i 0 ]
+    (time:get "dayofyear" fecha = item 1 _dias_reproduccion and _num_especies > 1) [ set i 1 ]
+    (time:get "dayofyear" fecha = item 2 _dias_reproduccion and _num_especies > 2) [ set i 2 ]
+  )
+  if i != -999 [
+    let n (count embarcaciones with [ activo? and not inactivo_por_veda? and item i especies_pescadas = 1])
+    ask patches [
       let biomasa_i item i biomasas
-      let R_i item i _Rs
+      let Rmin_i item i _Rs_min
+      let Rmax_i item i _Rs_max
+      ;; TODO: ajustar el valor 500 de acuerdo al valor máximo que se le de número máximo de embarcaciones
+      let R_i ((Rmin_i - Rmax_i) / 500) * n + Rmax_i
       let K_i item i _Ks
       set biomasas replace-item i biomasas (biomasa_i + ( biomasa_i * R_i * (1 - (biomasa_i / K_i))))
     ]
   ]
-end
+end  

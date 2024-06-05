@@ -23,8 +23,8 @@ to colorear_celdas
   ]
   
   if COLOREAR_POR = "zonificacion" [
-    ask patches with [ zonificacion = "NA"][ set pcolor white ]
-    ask patches with [ zonificacion = "libre" ][ set pcolor sky ]
+    ask celdas_NA [ set pcolor white ]
+    ask celdas_libre [ set pcolor sky ]
     colorear_zonificacion_protegido_y_restriccion
   ]
   
@@ -52,27 +52,20 @@ to colorear_celdas
   ]
   
   if COLOREAR_POR = "habitat tortugas" [
-    ask patches [
-      set pcolor sky
-      if tipo = "tierra" [ set pcolor green ]
-      if zona_anidamiento?  [ set pcolor yellow ]
-      if zona_alimentacion? [ set pcolor sky - 1 ]
-    ]
+    ask patches [ set pcolor scale-color sky cap_carga (MAX_CAPACIDAD_CARGA_TORTUGAS * 2) 0  ]
   ]
   
-  if COLOREAR_POR = "habitat especie protegida" [
-    ask patches [ set pcolor scale-color sky cap_carga (max_cap_carga * 2) 0  ]
+  if COLOREAR_POR = "accidentes" [
+    ask patches [ set pcolor scale-color yellow accidentes 0 max [num_accidentes] of patches ]
   ]
 end
 
-
-
 to colorear_derrames
   if any? patches with [ derramado? ][
-      ask patches with [ derramado? ] [
-        set pcolor black
-      ]
-    ] 
+    ask patches with [ derramado? ] [
+      set pcolor black
+    ]
+  ] 
 end
 
 to colorear_biomasa_total_especie
@@ -81,15 +74,16 @@ to colorear_biomasa_total_especie
   foreach (range _num_especies) [
     i ->
     let max_biomasa_sp item i _Ks
-    ask patches with [ item i habitats = 1 ][
+    let celdas_sp item i celdas_habitat_especies
+    ask celdas_sp [
       set pcolor scale-color (item i colores_especies) (item i biomasas) (max_biomasa_sp * 2) 0
     ]
   ]
 end
 
 to colorear_zonificacion_protegido_y_restriccion
-  ask patches with [ zonificacion = "protegido"   ][ set pcolor lime + 2 ]
-  ask patches with [ zonificacion = "restriccion" ][ set pcolor red + 1 ]  
+  ask celdas_protegido   [ set pcolor lime + 2 ]
+  ask celdas_restriccion [ set pcolor red + 1 ]  
 end
 
 to dibujar_regiones

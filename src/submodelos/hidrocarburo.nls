@@ -1,10 +1,3 @@
-patches-own [
-  hidrocarburo           ;; number: cantidad de hidrocarburo disponible en la celda
-  
-  derramado?
-  tiempo_desde_derrame
-]
-
 globals [
   ganancia_acumulada_petroleo ;; number: registra la ganancia todal del petroleo acumulada en el tiempo 
   produccion_total
@@ -13,19 +6,17 @@ globals [
 ]
 
 to init_hidrocarburo
-  
-  set produccion_total 0
+  print "Inicializando hidrocarburo..."
   set ganancia_acumulada_petroleo 0
+  set produccion_total 0
   set num_derrames 0
+  set ganancia_mensual_petroleo 0
   
-  ask patches [
-    set derramado? false
-    set tiempo_desde_derrame -999
-    set hidrocarburo 0
-  ]
+  ;; se llenan de hidrocarburo las celdas de mar
   ask celdas_mar [
     set hidrocarburo HIDROCARBURO_INICIAL
   ]
+  print "OK"
 end
 
 to COLOCAR_PLATAFORMAS
@@ -47,8 +38,8 @@ to COLOCAR_PLATAFORMAS
     ]
     colorear_celdas
     display
-    actualizar_zonificacion
-    actualizar_transitables
+;    actualizar_zonificacion
+    actualizar_transitables_embarcaciones
     ask embarcaciones [ actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados ]
   ]
   [
@@ -63,7 +54,7 @@ to subsidiar_gasolina
   ]
 end
 
-to init_registros_mensuales_petroleo
+to reset_registros_mensuales_petroleo
   set ganancia_mensual_petroleo 0
 end
 
@@ -87,7 +78,8 @@ to dinamica_derrame
 end
 
 to extender_derrame
-  ask patches with [derramado? and tiempo_desde_derrame = 1 ][
+  let celdas_derramado patches with [derramado?]
+  ask celdas_derramado with [tiempo_desde_derrame = 1 ][
     ask neighbors4 with [ tipo = "mar" and not derramado?][
       if random-float 1.0 < PROB_EXTENSION_DERRAME [
         set derramado? true
@@ -96,7 +88,7 @@ to extender_derrame
       ]
     ]
   ]
-  ask patches with [ derramado? ][
+  ask celdas_derramado [
     if random-float 1.0 < TASA_MORTALIDAD_DERRAME [
       ask tortugas-here [ die ]
     ]

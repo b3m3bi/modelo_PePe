@@ -1,93 +1,19 @@
 breed [ tortugas tortuga ]
 
-tortugas-own [ 
-  migrando?
-]
-
-patches-own [
-  zona_anidamiento?
-  zona_alimentacion?
-  vecinos_derecha
-  vecinos_izquierda
-  vecinos_zona_alimentacion
-  
-  cap_carga
-]
-
-globals [
-  max_cap_carga
-]
-
-;;;;; MODELO 1 ;;;;; 
-
 to init_tortugas
-  
-  ask patches [ 
-    set zona_anidamiento? false
-    set zona_alimentacion? false
-    set vecinos_derecha   (patch-set patch-at-heading-and-distance 45 1 patch-at-heading-and-distance 90 1 patch-at-heading-and-distance 135 1 )
-    set vecinos_izquierda (patch-set patch-at-heading-and-distance -45 1 patch-at-heading-and-distance -90 1 patch-at-heading-and-distance -135 1 )
-    set vecinos_zona_alimentacion nobody
-  ]
-  ;; se defifnen las zonas de anidamiento
-  ask patches with [ pxcor = max-pxcor - ancho_tierra + 1][
-    set zona_anidamiento? true 
-  ]
-  
-  ask patches with [ num_region = 2 or num_region = 3][
-    set zona_alimentacion? true
+  print "Inicializando tortugas..."
+  ;; se crea el hábitat de las tortugas
+  let inicio 10
+  let b inicio / (max-pxcor - inicio)
+  let m 1 / ( max-pxcor - inicio)
+  ask celdas_mar [
+    let ruido random-normal 0 0.5
+    set cap_carga (((pxcor * m ) - b) * MAX_CAPACIDAD_CARGA_TORTUGAS) + ruido
+    if cap_carga < 0 [ set cap_carga 0 ]
+    if cap_carga > MAX_CAPACIDAD_CARGA_TORTUGAS [ set cap_carga MAX_CAPACIDAD_CARGA_TORTUGAS ]
   ]
   
-  ask patches with [ zona_alimentacion? ][
-    set vecinos_zona_alimentacion neighbors with [ zona_alimentacion? ]
-  ]
-  
-  create-tortugas TAMANIO_POB_INICIAL_TORTUGAS [
-    set shape "turtle"
-    set color lime 
-    set size .5
-    move-to one-of patches with [ zona_alimentacion? ]
-    set migrando? false
-  ]
-end
-
-
-to dinamica_tortugas 
-  ;; ciclo anual
-  if (ticks mod 365 = INICIO_MIGRACION) [
-    ask tortugas [ set migrando? true ]
-  ]
-  
-  ;; movimiento
-  ask tortugas [
-    (ifelse  
-      migrando? [ face one-of vecinos_derecha ]
-      not migrando? and not zona_alimentacion? [ face one-of vecinos_izquierda ]
-      not migrando? and zona_alimentacion? [ face one-of vecinos_zona_alimentacion ]
-    )
-    jump 1
-  ]
- 
-  ;; reproducción
-  ask tortugas [
-    if zona_anidamiento? [
-      set migrando? false
-      hatch NUM_DESCENDIENTES_TORTUGAS
-    ]
-  ]
-  
-  ;; mortalidad
-  ask patches [
-    if zona_alimentacion? and count tortugas-here with [ not migrando? ] > CAPACIDAD_DE_CARGA_TORTUGAS [
-      ask n-of (count tortugas-here - CAPACIDAD_DE_CARGA_TORTUGAS) tortugas-here [ die ]
-    ]
-  ]  
-end
-
-;;;;; MODELO 2 ;;;;; 
-
-to init_tortugas2
-  crear_habitat
+  ;; se crean las tortugas
   create-tortugas TAMANIO_POB_INICIAL_TORTUGAS [
     set shape "turtle"
     set color brown + 1
@@ -98,30 +24,13 @@ to init_tortugas2
     set size 0.5
     move-to one-of patches with [ cap_carga >= 1 ]
   ]
+  
+  print "OK"
 end
 
-to crear_habitat
-  let inicio 10
-  let b inicio / (max-pxcor - inicio)
-  let m 1 / ( max-pxcor - inicio)
-  set max_cap_carga CAPACIDAD_DE_CARGA_TORTUGAS
-
-  ask celdas_tierra [ set cap_carga 0 ]
-  ask celdas_mar [
-    let ruido random-normal 0 0.5
-    set cap_carga (((pxcor * m ) - b) * max_cap_carga) + ruido
-    if cap_carga < 0 [ set cap_carga 0 ]
-    if cap_carga > max_cap_carga [ set cap_carga max_cap_carga ]
-  ]
-end
-
-
-to dinamica_tortugas_2 
+to dinamica_tortugas
   ask tortugas [ moverse_tortugas ]
-  
-  ;; TODO: meter un parámetro para ajustar fecha de reproduccion
   if (ticks mod 365 = DIA_REPRODUCCION_TORTUGAS) [ reproducirse_tortugas ]
-  
   mortalidad_sobrepoblacion
 end
 

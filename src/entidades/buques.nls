@@ -1,37 +1,41 @@
 breed [ buques buque ]
 
 buques-own [
-  mi_plataforma
-  mi_puerto
-  ruta_a_puerto
-  ruta_a_plataforma
-  ruta
-  carga
-  destino
-  indice_actual_ruta
-  tiempo_restante_iteracion
-  estado
-  distancia_recorrida
+  mi_plataforma                  ;; agent (plataforma): plataforma en la que cargo
+  mi_puerto                      ;; agent (puerto): puerto en el que descargo
+  ruta_a_puerto                  ;; list (patches): lista de la ruta que debo seguir en un viaje desde la plataforma hacia el pueto
+  ruta_a_plataforma              ;; list (patches): lista de la ruta que debo seguir en un viaje desde el puerto hacia la plataforma
+  ruta                           ;; list (patches): lista de la ruta que debo seguir en un viaje dado
+  carga                          ;; number: cuanta cantidad de producción de hidrocarburo transporto
+  destino                        ;; agent (patch): sitio al que me dirijo
+  indice_actual_ruta             ;; number: indice de la celda donde estoy en mi ruta
+  tiempo_restante_iteracion      ;; number: tiempo que queda de la iteración
+  estado                         ;; string: estado de actividad del buque ("moviendose" "cargando" "descargando")
+  distancia_recorrida            ;; number: distancia que recorre el buque en un viaje (del puerto a la plataforma y de regreso al puerto)
+  tiempo_carga                   ;; number: tiempo que lleva cargando el buque
+  tiempo_descarga                ;; number: tiempo que lleva descargado el buque
 ]
 
 globals [
-  num_accidentes
+  num_accidentes                 ;; número de accidentes entre buques y embarcaciones pesqueras
+  tiempo_en_plataforma           ;; número de horas que un buque pasa en una plataforma
+  tiempo_en_puerto               ;; número de horas que un buque pasa en un puerto
 ]
 
 to init_buques
+  print "Inicializando buques..."
   set num_accidentes 0
+  set tiempo_en_plataforma 3
+  set tiempo_en_puerto 3
+  
   ask plataformas [
     hatch-buques 1 [
       init_buque myself
     ]
   ]
-end
-
-
-to actualizar_transitables_buques
-  ask patches [ set transitable? false ]
-  ask celdas_mar [ set transitable? true ]
-  ask puertos [ set transitable? true ]
+  
+  calcular_rutas_buques
+  print "OK"
 end
 
 to init_buque [_plataforma]
@@ -41,12 +45,22 @@ to init_buque [_plataforma]
   set tiempo_restante_iteracion 0
   set mi_plataforma _plataforma
   set mi_puerto min-one-of puertos [ distance _plataforma ]
-  set ruta_a_puerto obtener_ruta_A_star [patch-here] of mi_plataforma [patch-here] of mi_puerto
-  set ruta_a_plataforma obtener_ruta_A_star [patch-here] of mi_puerto [patch-here] of mi_plataforma
+  set ruta_a_puerto []
+  set ruta_a_plataforma []
   set destino [patch-here] of mi_puerto
   set ruta ruta_a_puerto
   set estado "cargando"
   set distancia_recorrida 0 
+  set tiempo_carga 0
+  set tiempo_descarga 0
+end
+
+to calcular_rutas_buques
+  actualizar_transitables_buques
+  ask buques [
+    set ruta_a_puerto obtener_ruta_A_star_buque [patch-here] of mi_plataforma [patch-here] of mi_puerto
+    set ruta_a_plataforma obtener_ruta_A_star_buque [patch-here] of mi_puerto [patch-here] of mi_plataforma
+  ]
 end
 
 to dinamica_iteracion_buque
@@ -72,20 +86,14 @@ to moverse_buque
     [ set estado "descargando" ]
     [ set estado "cargando" ]
   ][
-    ;; avanzo una unidad de velocidad hacia mi destino
-    let _velocidad 5
-;    let _embarcaciones_aqui count embarcaciones-here
-;    (ifelse 
-;      _embarcaciones_aqui >= 5  [ set _velocidad _velocidad * 0.5 ]
-;      _embarcaciones_aqui >= 10 [ set _velocidad _velocidad * 0.25 ]
-;      _embarcaciones_aqui >= 10 [ set _velocidad _velocidad * 0.1 ]
-;    )  
-    let tamanio_paso _velocidad / longitud_celda
+
+    let tamanio_paso VELOCIDAD_BUQUES / longitud_celda
     let distancia_avanzada 0
     
-    if any? embarcaciones-here with [ estado != "moviendose"] and random-float 1.0 < PROB_ACCIDENTE [
-      ask one-of embarcaciones-here with [ estado != "moviendose"] [ set averidado? true ]
+    if tipo = "mar" and any? embarcaciones-here with [ estado != "moviendose" ] and random-float 1.0 < PROB_ACCIDENTE [
+      ask one-of embarcaciones-here with [ estado != "moviendose" ] [ set averidado? true ]
       set num_accidentes num_accidentes + 1
+      set accidentes accidentes + 1
     ]
 
     while [ distancia_avanzada < tamanio_paso ] [

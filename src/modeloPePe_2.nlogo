@@ -21,81 +21,68 @@ extensions [ profiler ]
 
 to INICIALIZAR
 
+  reset-timer
   print "==========================\nInicializando modelo..."
 
   clear-all
 
-  init_variables_jugables
+  if not PRUEBA? [
+    init_ronda
+    init_variables_jugables
+    ;; TODO: inicializar parámetros fijos
+    ;init_parametros
+  ]
 
   init_globales
-
-  init_paisaje
-  init_puertos
-  init_regiones
-
-  init_habitats
-  init_ecologia
-
+  init_celdas
   init_A_star_pathfinder
+  init_paisaje
+  init_regiones
+  init_ecologia
+  init_tortugas
   init_hidrocarburo
-
   init_zonificacion
+  init_puertos
   init_plataformas
-  ;; se asegura que todos los sitios del mapa sean accesibles
-  ;; para que el algoritmo de búsqueda de caminos no se rompa
-  while [not todos_los_sitios_son_accesibles?][
-    ask plataformas [ die ]
-    init_zonificacion
-    init_plataformas
-  ]
-  init_registros_mensuales_petroleo
-
-  init_ronda
-
-  actualizar_transitables_buques
   init_buques
-
   init_embarcaciones
-  init_registros_diarios_todo
-  actualizar_transitables
-
-;  init_tortugas
-  init_tortugas2
-
+  init_rutas
+  init_registros
   init_umbrales_juego
 
   colorear_celdas
   dibujar_regiones
   colocar_etiquetas_regiones
-
-
   reset-ticks
 
-  print "Inicialización completada.\n=========================="
+  print (word "Inicialización completada.\nTiempo: " timer " seg\n==========================")
 end
 
 
 to EJECUTAR
   if ticks = 0 [ reset-timer ]
+  if PRUEBA? [ if ano = ANOS_PRUEBA [ print timer stop ]]
   if perdio? [
     user-message mensaje_fin_juego
     stop
   ]
 
   if paso_un_dia [
-    init_registros_diarios_puertos
-    init_registros_diarios_todo
+    ask puertos [ reset_registros_diarios_puerto ]
+    reset_registros_diarios_todo
   ]
   if paso_un_mes [
-    ask embarcaciones [ actualizar_estado_economico ]
-    init_registros_mensuales_embarcaciones
-    init_registros_mensuales_petroleo
+    ask embarcaciones [
+      actualizar_estado_economico
+      reset_registros_mensuales_embarcacion
+    ]
+    reset_registros_mensuales_petroleo
   ]
 
   ask embarcaciones [ dinamica_iteracion_embarcacion ]
 
   if paso_un_dia [ dispersion ]
-  if paso_un_ano [ dinamica_poblacional ]
+  dinamica_poblacional
 
   if paso_un_dia [
     ask plataformas [
@@ -112,15 +99,14 @@ to EJECUTAR
   registro_puertos_a_total
 
   if paso_un_dia [
-;    dinamica_tortugas
-    dinamica_tortugas_2
+    dinamica_tortugas
   ]
 
   colorear_celdas
 
   if paso_un_dia [ actualizar_fecha ]
-
   if paso_un_mes [ revisar_umbrales_juego ]
+
   tick
 end
 @#$#@#$#@
@@ -192,14 +178,14 @@ CHOOSER
 575
 COLOREAR_POR
 COLOREAR_POR
-"tipo" "biomasa total" "biomasa total especie" "zonificacion" "biomasa, zonificacion y derrames" "hidrocarburo" "derrames" "habitat tortugas" "habitat especie protegida"
+"tipo" "biomasa total" "biomasa total especie" "zonificacion" "biomasa, zonificacion y derrames" "hidrocarburo" "derrames" "habitat tortugas" "accidentes"
 4
 
 SLIDER
 1990
-530
+590
 2165
-563
+623
 NUM_PUERTOS
 NUM_PUERTOS
 1
@@ -219,7 +205,7 @@ NUM_EMBARCACIONES_PUERTO_1
 NUM_EMBARCACIONES_PUERTO_1
 0
 500
-260.0
+500.0
 1
 1
 NIL
@@ -233,8 +219,8 @@ SLIDER
 NUM_EMBARCACIONES_PUERTO_2
 NUM_EMBARCACIONES_PUERTO_2
 0
-100
-100.0
+500
+0.0
 1
 1
 NIL
@@ -248,8 +234,8 @@ SLIDER
 NUM_EMBARCACIONES_PUERTO_3
 NUM_EMBARCACIONES_PUERTO_3
 0
-100
-15.0
+500
+0.0
 1
 1
 NIL
@@ -275,7 +261,7 @@ HORAS_DESCANSAR
 HORAS_DESCANSAR
 0
 168
-48.0
+72.0
 1
 1
 horas
@@ -293,9 +279,9 @@ SELECCION_SITIO_PESCA
 
 SLIDER
 1990
-425
+485
 2165
-458
+518
 LONG_REGION_1
 LONG_REGION_1
 0
@@ -308,9 +294,9 @@ HORIZONTAL
 
 SLIDER
 1990
-460
+520
 2165
-493
+553
 LONG_REGION_2
 LONG_REGION_2
 0
@@ -323,9 +309,9 @@ HORIZONTAL
 
 SLIDER
 1990
-495
+555
 2165
-528
+588
 LONG_REGION_3
 LONG_REGION_3
 0
@@ -364,7 +350,7 @@ CHOOSER
 REGION_PESCA_EMBARCACIONES_PUERTO_3
 REGION_PESCA_EMBARCACIONES_PUERTO_3
 1 2 3
-2
+0
 
 SLIDER
 2490
@@ -437,16 +423,6 @@ VELOCIDAD
 km/hora
 HORIZONTAL
 
-CHOOSER
-2720
-190
-2995
-235
-ARTES_PESCA_PUERTO_1
-ARTES_PESCA_PUERTO_1
-"ESPECIE 1" "ESPECIE 2" "ESPECIE 3" "ESPECIE 1 y ESPECIE 2 y ESPECIE 3"
-0
-
 SLIDER
 2720
 120
@@ -470,7 +446,7 @@ SLIDER
 CAPACIDAD_MAXIMA_PUERTO_1
 CAPACIDAD_MAXIMA_PUERTO_1
 1
-100
+20
 1.0
 1
 1
@@ -479,9 +455,9 @@ HORIZONTAL
 
 SLIDER
 2720
-240
+255
 2995
-273
+288
 HORAS_MAXIMAS_EN_MAR_PUERTO_1
 HORAS_MAXIMAS_EN_MAR_PUERTO_1
 1
@@ -494,9 +470,9 @@ HORIZONTAL
 
 CHOOSER
 2290
-335
+405
 2475
-380
+450
 DISTRIBUCION_ESPECIES
 DISTRIBUCION_ESPECIES
 "homogenea" "partes iguales" "dif spp en cada region"
@@ -523,16 +499,16 @@ INPUTBOX
 2475
 140
 BIOMASAS_INICIALES
-[500 500 500]
+[400 400 400]
 1
 0
 String
 
 SLIDER
 2720
-385
+405
 2945
-418
+438
 PRECIO_LITRO_GAS
 PRECIO_LITRO_GAS
 0
@@ -545,9 +521,9 @@ HORIZONTAL
 
 SLIDER
 2720
-420
+440
 2945
-453
+473
 LITROS_POR_DISTANCIA
 LITROS_POR_DISTANCIA
 0
@@ -560,9 +536,9 @@ HORIZONTAL
 
 SLIDER
 2720
-455
+475
 2945
-488
+508
 LITROS_POR_HORA_PESCA
 LITROS_POR_HORA_PESCA
 0
@@ -670,9 +646,9 @@ SELECCION_MEJOR_SITIO
 
 INPUTBOX
 2290
-270
+340
 2475
-335
+405
 Ms
 [.001 .001 .001]
 1
@@ -705,8 +681,8 @@ INPUTBOX
 205
 2475
 270
-Rs
-[0.7 0.7 0.7]
+Rs_min
+[0.6 0.6 0.6]
 1
 0
 String
@@ -756,8 +732,8 @@ SLIDER
 CAPACIDAD_MAXIMA_PUERTO_2
 CAPACIDAD_MAXIMA_PUERTO_2
 0
-100
-12.0
+20
+1.0
 1
 1
 NIL
@@ -786,38 +762,18 @@ SLIDER
 CAPACIDAD_MAXIMA_PUERTO_3
 CAPACIDAD_MAXIMA_PUERTO_3
 0
-100
+20
 1.0
 1
 1
 NIL
 HORIZONTAL
 
-CHOOSER
-3000
-190
-3275
-235
-ARTES_PESCA_PUERTO_2
-ARTES_PESCA_PUERTO_2
-"ESPECIE 1" "ESPECIE 2" "ESPECIE 3" "ESPECIE 1 y ESPECIE 2 y ESPECIE 3"
-1
-
-CHOOSER
-3280
-190
-3555
-235
-ARTES_PESCA_PUERTO_3
-ARTES_PESCA_PUERTO_3
-"ESPECIE 1" "ESPECIE 2" "ESPECIE 3" "ESPECIE 1 y ESPECIE 2 y ESPECIE 3"
-2
-
 SLIDER
 3000
-240
+255
 3275
-273
+288
 HORAS_MAXIMAS_EN_MAR_PUERTO_2
 HORAS_MAXIMAS_EN_MAR_PUERTO_2
 1
@@ -830,9 +786,9 @@ HORIZONTAL
 
 SLIDER
 3280
-240
+255
 3555
-273
+288
 HORAS_MAXIMAS_EN_MAR_PUERTO_3
 HORAS_MAXIMAS_EN_MAR_PUERTO_3
 1
@@ -899,9 +855,9 @@ true
 false
 "" ""
 PENS
-"puerto 1" 1.0 0 -2064490 true "" "if paso_un_mes and \nany? puertos with [num_puerto = 0][\nifelse any? embarcaciones with [[num_puerto] of mi_puerto = 0 and activo?] \n[ plotxy dias mean [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 0 and activo?]]\n[ plotxy dias 0 ]]"
-"puerto 2" 1.0 0 -8630108 true "" "if ticks = 0 or paso_un_mes and \nany? puertos with [num_puerto = 1][\nifelse any? embarcaciones with [[num_puerto] of mi_puerto = 1 and activo?] \n[ plotxy dias mean [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 1 and activo?]]\n[ plotxy dias 0 ]]"
-"puerto 3" 1.0 0 -13345367 true "" "if ticks = 0 or paso_un_mes and \nany? puertos with [num_puerto = 2][\nifelse any? embarcaciones with [[num_puerto] of mi_puerto = 2 and activo?] \n[ plotxy dias mean [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 2 and activo?]]\n[ plotxy dias 0 ]]"
+"puerto 1" 1.0 0 -2064490 true "" "if paso_un_mes and \nany? puertos with [num_puerto = 0][\nifelse any? embarcaciones with [[num_puerto] of mi_puerto = 0 and activo?] \n[ plotxy dias mean [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 0]]\n[ plotxy dias 0 ]]"
+"puerto 2" 1.0 0 -8630108 true "" "if ticks = 0 or paso_un_mes and \nany? puertos with [num_puerto = 1][\nifelse any? embarcaciones with [[num_puerto] of mi_puerto = 1 and activo?] \n[ plotxy dias mean [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 1 ]]\n[ plotxy dias 0 ]]"
+"puerto 3" 1.0 0 -13345367 true "" "if ticks = 0 or paso_un_mes and \nany? puertos with [num_puerto = 2][\nifelse any? embarcaciones with [[num_puerto] of mi_puerto = 2 and activo?] \n[ plotxy dias mean [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 2 ]]\n[ plotxy dias 0 ]]"
 "umbral" 1.0 0 -4539718 true "" "if ticks = 0 or paso_un_mes [plotxy dias SALARIO_MENSUAL_MINIMO_ACEPTABLE ]"
 
 PLOT
@@ -911,7 +867,7 @@ PLOT
 420
 viajes finalizados
 dias
-número de viajes
+num
 0.0
 10.0
 0.0
@@ -940,10 +896,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-15
-455
-305
-488
+1695
+420
+1930
+453
 NIL
 SELECCIONAR_ZONAS_PROTEGER
 T
@@ -957,10 +913,10 @@ NIL
 1
 
 BUTTON
-1690
-415
-1925
-448
+1695
+385
+1930
+418
 NIL
 SELECCIONAR_ZONAS_RESTRICCION
 T
@@ -974,10 +930,10 @@ NIL
 1
 
 BUTTON
-1690
-380
-1925
-413
+1695
+350
+1930
+383
 NIL
 COLOCAR_PLATAFORMAS
 T
@@ -1123,27 +1079,27 @@ $/embarcacion
 HORIZONTAL
 
 SLIDER
-1690
-300
-1970
-333
+1695
+250
+1975
+283
 UMBRAL_BIOMASA_SOSTENIBLE
 UMBRAL_BIOMASA_SOSTENIBLE
 0
 100
-10.0
+0.0
 1
 1
 %
 HORIZONTAL
 
 SLIDER
-1690
-335
-1970
-368
-UMBRAL_EMBARCACIONES_QUIEBRA
-UMBRAL_EMBARCACIONES_QUIEBRA
+1695
+285
+1975
+318
+PORCENTAJE_MAXIMO_EMBARCACIONES_QUIEBRA
+PORCENTAJE_MAXIMO_EMBARCACIONES_QUIEBRA
 0
 100
 50.0
@@ -1272,26 +1228,11 @@ HORIZONTAL
 
 SLIDER
 1695
-215
-1975
-248
-INICIO_MIGRACION
-INICIO_MIGRACION
-0
-360
-17.0
-1
-1
-NIL
-HORIZONTAL
-
-SLIDER
-1695
 75
 1975
 108
-CAPACIDAD_DE_CARGA_TORTUGAS
-CAPACIDAD_DE_CARGA_TORTUGAS
+MAX_CAPACIDAD_CARGA_TORTUGAS
+MAX_CAPACIDAD_CARGA_TORTUGAS
 1
 5
 5.0
@@ -1309,7 +1250,7 @@ PROB_MORTALIDAD_TORTUGA_POR_PESCA
 PROB_MORTALIDAD_TORTUGA_POR_PESCA
 0
 1
-0.01
+0.008
 0.001
 1
 NIL
@@ -1332,9 +1273,9 @@ HORIZONTAL
 
 SLIDER
 2720
-490
+510
 2945
-523
+543
 MESES_PARA_COLAPSO
 MESES_PARA_COLAPSO
 0
@@ -1347,9 +1288,9 @@ HORIZONTAL
 
 SWITCH
 15
-490
+525
 160
-523
+558
 VEDA_ENE_FEB
 VEDA_ENE_FEB
 1
@@ -1380,9 +1321,9 @@ time:show fecha \"dd\"
 
 SWITCH
 15
-525
+560
 160
-558
+593
 VEDA_MAR_ABR
 VEDA_MAR_ABR
 1
@@ -1391,23 +1332,12 @@ VEDA_MAR_ABR
 
 SWITCH
 15
-560
+595
 160
-593
+628
 VEDA_MAY_JUN
 VEDA_MAY_JUN
-0
 1
--1000
-
-SWITCH
-160
-490
-305
-523
-VEDA_JUL_AGO
-VEDA_JUL_AGO
-0
 1
 -1000
 
@@ -1416,8 +1346,8 @@ SWITCH
 525
 305
 558
-VEDA_SEP_OCT
-VEDA_SEP_OCT
+VEDA_JUL_AGO
+VEDA_JUL_AGO
 1
 1
 -1000
@@ -1427,6 +1357,17 @@ SWITCH
 560
 305
 593
+VEDA_SEP_OCT
+VEDA_SEP_OCT
+1
+1
+-1000
+
+SWITCH
+160
+595
+305
+628
 VEDA_NOV_DIC
 VEDA_NOV_DIC
 1
@@ -1477,7 +1418,7 @@ CHOOSER
 155
 REGION_DONDE_PESCAR
 REGION_DONDE_PESCAR
-"Region 1: camarón" "Region 2: escama" "Region 3: huachunango"
+"Region 1: camarón" "Region 2: escama" "Region 3: huachinango"
 0
 
 TEXTBOX
@@ -1498,8 +1439,8 @@ SLIDER
 NUMERO_EMBARCACIONES
 NUMERO_EMBARCACIONES
 0
-500
-260.0
+1000
+500.0
 10
 1
 embarcaciones
@@ -1517,9 +1458,9 @@ TIPO_DE_EMBARCACIONES
 
 SLIDER
 2720
-275
+290
 2995
-308
+323
 TAMANIO_TRIPULACION_PUERTO_1
 TAMANIO_TRIPULACION_PUERTO_1
 3
@@ -1532,9 +1473,9 @@ HORIZONTAL
 
 SLIDER
 3000
-275
+290
 3275
-308
+323
 TAMANIO_TRIPULACION_PUERTO_2
 TAMANIO_TRIPULACION_PUERTO_2
 3
@@ -1547,9 +1488,9 @@ HORIZONTAL
 
 SLIDER
 3280
-275
+290
 3555
-308
+323
 TAMANIO_TRIPULACION_PUERTO_3
 TAMANIO_TRIPULACION_PUERTO_3
 3
@@ -1597,9 +1538,9 @@ SECTOR PETROLERO
 
 INPUTBOX
 2720
-315
+335
 2945
-385
+405
 PRECIOS_KILO_BIOMASA
 [5 5 5 ]
 1
@@ -1608,9 +1549,9 @@ String
 
 SLIDER
 2720
-525
+545
 2945
-558
+578
 SALARIO_MENSUAL_MINIMO_ACEPTABLE
 SALARIO_MENSUAL_MINIMO_ACEPTABLE
 0
@@ -1711,7 +1652,7 @@ PROB_ACCIDENTE
 PROB_ACCIDENTE
 0
 1
-0.001
+0.005
 0.001
 1
 NIL
@@ -1818,7 +1759,7 @@ MONITOR
 1380
 55
 área restricción
-count celdas_restriccion
+count patches with [ zonificacion = \"restriccion\" ]
 17
 1
 11
@@ -1829,7 +1770,7 @@ MONITOR
 1470
 55
 área protegida
-(count celdas_protegido)
+count patches with [ zonificacion = \"protegido\" ]
 17
 1
 11
@@ -1924,9 +1865,9 @@ tiempo poblaciones viables
 
 TEXTBOX
 1995
-405
+430
 2145
-423
+448
 PAISAJE
 12
 0.0
@@ -1958,11 +1899,158 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-1695
-275
-1845
-293
+1700
+225
+1850
+243
 JUGABILIDAD
+12
+0.0
+1
+
+INPUTBOX
+2290
+450
+2475
+515
+DIAS_REPRODUCCION
+[10 20 30 ]
+1
+0
+String
+
+INPUTBOX
+2290
+270
+2475
+340
+Rs_max
+[0.8 0.8 0.8]
+1
+0
+String
+
+INPUTBOX
+2720
+190
+2995
+255
+ESPECIES_PESCA_PUERTO_1
+[ 1 0 0 ]
+1
+0
+String
+
+INPUTBOX
+3000
+190
+3275
+255
+ESPECIES_PESCA_PUERTO_2
+[1 1 1]
+1
+0
+String
+
+INPUTBOX
+3280
+190
+3555
+255
+ESPECIES_PESCA_PUERTO_3
+[1 1 1]
+1
+0
+String
+
+SLIDER
+1990
+450
+2165
+483
+LONG_TIERRA
+LONG_TIERRA
+1
+5
+3.0
+1
+1
+NIL
+HORIZONTAL
+
+SWITCH
+1695
+470
+1850
+503
+PRUEBA?
+PRUEBA?
+1
+1
+-1000
+
+SLIDER
+1990
+390
+2275
+423
+VELOCIDAD_BUQUES
+VELOCIDAD_BUQUES
+1
+10
+5.0
+1
+1
+NIL
+HORIZONTAL
+
+INPUTBOX
+1695
+505
+1850
+565
+ANOS_PRUEBA
+1.0
+1
+0
+Number
+
+SLIDER
+15
+455
+310
+488
+ANCHO_ZONA_PROTEGIDA
+ANCHO_ZONA_PROTEGIDA
+0
+17
+10.0
+1
+1
+pixeles
+HORIZONTAL
+
+SLIDER
+15
+490
+310
+523
+LARGO_ZONA_PROTEGIDA
+LARGO_ZONA_PROTEGIDA
+0
+30
+10.0
+1
+1
+pixeles
+HORIZONTAL
+
+TEXTBOX
+1695
+325
+1845
+343
+EDICIÓN INTERACTIVA
 12
 0.0
 1

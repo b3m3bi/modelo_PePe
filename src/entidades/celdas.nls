@@ -1,11 +1,51 @@
-patches-own [ 
+patches-own [
+  ;; paisaje 
   tipo                     ;; string: espacio fisico que representa la celda: "mar", "tierra", "puerto"
+  
+  ;; región
   num_region               ;; number: identificador del la región de pesca a la que pertence la celda
+  
+  ;; petroleo
+  accidentes               ;; number: número de accidentes que han pasado en esta celda
+  hidrocarburo             ;; number: cantidad de hidrocarburo disponible en la celda
+  derramado?               ;; boolean: indica si una celda está derramada con hidrocarburo o no
+  tiempo_desde_derrame     ;; number: tiempo que ha pasado desde que empecé a estar derramado
+  
+  ;; tortugas
+  cap_carga                ;; number: capacidad de carga de tortugas que caben en una celda
+  
+  ;; ecología
+  biomasas                 ;; list (number): lista con la cantidad de biomasa de cada especie
+  habitats                 ;; list (number): lista que indica si la especie en un índice peude vivir (1) o no (0) en una celda
+  cambio_biomasas          ;; list (number): lista con la cantidad de cambio de la biomasa por la difusión de y hacia las celdas vecinas
+  vecinos_habitat          ;; list (agentset (patches)): lista donde cada elemento es conjunto de celdas vecinas que son de tipo mar y que son habitat de la especie del índice 
+   
+  ;; zonificacion
+  zonificacion             ;; string: tipo de zonificación que se le asigna a una celda: "libre", "restriccion", "protegido", "NA" 
+  ya_me_picaste            ;; boolean: variable para ayudar a la interactividad al seleccionar areas
 ]
 
-
-to init_celda
-  set tipo "NA"
-  set num_region -9999
-  
+to init_celdas
+  print "Inicializando celdas..."
+  ask patches [
+    set tipo "NA"
+    set num_region -9999
+    
+    set accidentes 0
+    set hidrocarburo 0
+    set derramado? false
+    set tiempo_desde_derrame -9999
+    
+    set cap_carga 0
+    
+    set biomasas []
+    set habitats []
+    set cambio_biomasas []
+    set vecinos_habitat [] 
+    
+    set zonificacion "NA"
+    set ya_me_picaste false
+    
+  ]
+  print "OK"
 end

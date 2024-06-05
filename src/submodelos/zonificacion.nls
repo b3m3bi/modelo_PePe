@@ -1,31 +1,37 @@
-patches-own [ 
-  zonificacion        ;; string: tipo de zonificación que se le asigna a una celda: "libre", "restriccion", "protegido", "NA"
-  
-  ya_me_picaste       ;; boolean: variable para ayudar a la interactividad al seleccionar areas
-  num_zona            ;; number: identificador del grupo de zonificacion al que pertenezco
-]
-
-globals [
+globals [ 
+  ;; TODO: creo que el calculo en vivo de estas celdas si alenta el modelo :( Recuerda que se pueden calcular después de agregar todos los elementos de zonificación
   celdas_restriccion
   celdas_libre
   celdas_protegido
-  
-   num_zonas           ;; number: número total de zonas 
+  celdas_NA
 ]
 
 to init_zonificacion
-  
-  ask patches [ 
-    set ya_me_picaste false 
-    set num_zona -999
-  ]
-  
+  print "Inicializando zonificación..."
   ask celdas_tierra [ set zonificacion "NA" ]
   ask celdas_mar    [ set zonificacion "libre" ]
   
-  set num_zonas 0
+  ;; se inicializan las áreas protegidas
+  let x_origen_zona_protegida (min [pxcor] of celdas_tierra) - 1
+  let y_origen_zona_protegida (max [pycor] of patches)
+  
+  ask patches with [ 
+    pxcor >  x_origen_zona_protegida - LARGO_ZONA_PROTEGIDA and 
+    pxcor <= x_origen_zona_protegida and
+    pycor >  y_origen_zona_protegida - ANCHO_ZONA_PROTEGIDA and
+    pycor <= y_origen_zona_protegida 
+  ][ set zonificacion "protegido" ]
   
   actualizar_zonificacion
+  
+  print "OK"
+end
+
+to actualizar_zonificacion
+  set celdas_restriccion patches with [ zonificacion = "restriccion" ]
+  set celdas_libre patches with [ zonificacion = "libre" ]
+  set celdas_protegido patches with [ zonificacion = "protegido" ]
+  set celdas_NA patches with [ zonificacion = "NA" ]
 end
 
 to SELECCIONAR_ZONAS_PROTEGER
@@ -41,7 +47,7 @@ to SELECCIONAR_ZONAS_PROTEGER
     ]
     
     actualizar_zonificacion
-    actualizar_transitables
+    actualizar_transitables_embarcaciones
     ask embarcaciones [ actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados ]
     
     colorear_celdas
@@ -56,12 +62,6 @@ to SELECCIONAR_ZONAS_PROTEGER
   ;; TODO: tratar casos extremos como que declaren toda la zona pesquera como protegida
 end
 
-to actualizar_zonificacion
-  set celdas_restriccion patches with [ zonificacion = "restriccion" ]
-  set celdas_libre patches with [ zonificacion = "libre" ]
-  set celdas_protegido patches with [ zonificacion = "protegido" ]
-end
-
 to SELECCIONAR_ZONAS_RESTRICCION
   ;; TODO: desactivar los otros botones activos
   ifelse mouse-down? [
@@ -74,7 +74,7 @@ to SELECCIONAR_ZONAS_RESTRICCION
       ]  
     ]
     actualizar_zonificacion
-    actualizar_transitables
+    actualizar_transitables_embarcaciones
     ask embarcaciones [ actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados ]
     
     colorear_celdas

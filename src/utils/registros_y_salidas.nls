@@ -8,8 +8,16 @@ globals [
   distancias_recorridas_dia_todo;; list (number): lista con las distancias recorridas de todos los viajes completados en un día
 ]
 
+to init_registros
+  print "Inicializando registros..."
+  reset_registros_diarios_todo
+  reset_registros_mensuales_petroleo
+  ask puertos [ reset_registros_diarios_puerto ]
+  print "OK"
+end
 
-to init_registros_diarios_todo
+
+to reset_registros_diarios_todo
   set viajes_finalizados_dia 0
   set capturas_dia_todo []
   set ganancias_dia_todo []
@@ -18,6 +26,8 @@ to init_registros_diarios_todo
   set gastos_gasolina_dia_todo []
   set distancias_recorridas_dia_todo []
 end
+
+
 
 to registro_puertos_a_total
   foreach sort puertos [
