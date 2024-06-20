@@ -54,10 +54,6 @@ to colorear_celdas
   if COLOREAR_POR = "habitat tortugas" [
     ask patches [ set pcolor scale-color sky cap_carga (MAX_CAPACIDAD_CARGA_TORTUGAS * 2) 0  ]
   ]
-  
-  if COLOREAR_POR = "accidentes" [
-    ask patches [ set pcolor scale-color yellow accidentes 0 max [num_accidentes] of patches ]
-  ]
 end
 
 to colorear_derrames
@@ -113,14 +109,18 @@ to dibujar_borde_region [_num_region]
 end
 
 to colocar_etiquetas_regiones
-  foreach (range 1 (num_regiones + 1)) [
+  let _etiquetas ["linea de \ncosta" "plataformas" "aguas profundas" ]
+;  let _desplazamiento [ 7 6 8 ]
+  let _desplazamiento [ 3 4 6 ]
+  foreach (range num_regiones) [
     i ->
-    ask patches with [num_region = i] with-min [pxcor] with-max [pycor][
+    ask patches with [num_region = i + 1] with-min [pxcor] with-max [pycor][
       sprout-etiquetas_region 1 [
-        set label (word num_region " ")
+;        set label (word num_region " ")
+        set label item i _etiquetas
         set label-color black
         set shape "vacio"
-        setxy (xcor + 0.2 ) (ycor - 0.1)
+        setxy (xcor + item i _desplazamiento ) (ycor - 0.1)
       ]
     ]
   ]

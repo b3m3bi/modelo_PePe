@@ -9,6 +9,7 @@ __includes [
   "./submodelos/ecologia.nls"
   "./submodelos/hidrocarburo.nls"
   "./submodelos/zonificacion.nls"
+  "./submodelos/vedas.nls"
   "./utils/visualizacion.nls"
   "./utils/globales_ayudadoras.nls"
   "./utils/A_star_pathfinder.nls"
@@ -46,6 +47,7 @@ to INICIALIZAR
   init_plataformas
   init_buques
   init_embarcaciones
+  init_vedas
   init_rutas
   init_registros
   init_umbrales_juego
@@ -61,63 +63,69 @@ end
 
 to EJECUTAR
   if ticks = 0 [ reset-timer ]
-  if PRUEBA? [ if ano = ANOS_PRUEBA [ print timer stop ]]
-  if perdio? [
-    user-message mensaje_fin_juego
-    stop
+  if PRUEBA? [
+    if ticks = 0 [ profiler:start ]
+    if ano = ANOS_PRUEBA [ profiler:stop print profiler:report print timer profiler:reset stop ]
   ]
-
-  if paso_un_dia [
+  ;; jugabilidad
+  if paso_un_dia? [ actualizar_tiempos_sostenibilidad ]
+  if paso_un_mes? [ revisar_umbrales_juego ]
+  if MOSTRAR_MENSAJES? and mensajes_juego != [] [ foreach mensajes_juego [ m -> user-message m ] set mensajes_juego []]
+  if DETENER_SI_PIERDE? and perdio? [ stop ]
+  ;; se resetean los registros
+  if paso_un_dia? [
     ask puertos [ reset_registros_diarios_puerto ]
     reset_registros_diarios_todo
+    reset_registros_diarios_hidrocarburo
   ]
-  if paso_un_mes [
+  if paso_un_mes? and ticks != 0 [
+    ;; cada inicio de mes se actualiza el estado económico y luego se resetean los registros del mes
     ask embarcaciones [
       actualizar_estado_economico
       reset_registros_mensuales_embarcacion
     ]
-    reset_registros_mensuales_petroleo
-  ]
-
-  ask embarcaciones [ dinamica_iteracion_embarcacion ]
-
-  if paso_un_dia [ dispersion ]
-  dinamica_poblacional
-
-  if paso_un_dia [
-    ask plataformas [
-      extraer_hidrocarburo
+    ask puertos [
+      reset_registros_mensuales_puerto
     ]
+    actualizar_estado_economico_hidrocarburo
+    reset_registros_mensuales_hidrocarburo
+  ]
+  ;;pesca
+  ask embarcaciones [ dinamica_iteracion_embarcacion ]
+  ;; ecología
+  if paso_un_dia? [
+    dispersion
+    dinamica_poblacional
+  ]
+  ;; petroleo
+  if paso_un_dia? [ ask plataformas [ extraer_hidrocarburo ] ]
+  ask buques [ dinamica_iteracion_buque ]
+  if paso_un_dia? [
+    calcular_balance_hidrocarburo
     dinamica_derrame
   ]
-
-  ask buques [ dinamica_iteracion_buque ]
-
-  if paso_un_mes [
-    subsidiar_gasolina
-  ]
-  registro_puertos_a_total
-
-  if paso_un_dia [
-    dinamica_tortugas
-  ]
-
+  if paso_un_mes? [ subsidiar_gasolina  ]
+  ;; tortugas
+  if paso_un_dia? [ dinamica_tortugas ]
+  ;; se actualiza la fecha, Nótese que con tick se actualizan las gráficas
+  ;; y se exportan los datos por lo que debe graficarse y exportarse antes de que se reseteen los
+  ;; registros mensuales (que ocurren al iniciar la iteración)
+  actualizar_fecha
+  ;; visualizacion
   colorear_celdas
-
-  if paso_un_dia [ actualizar_fecha ]
-  if paso_un_mes [ revisar_umbrales_juego ]
-
   tick
+;  if paso_un_dia? [ print (word "Paso un día, tick = " ticks "; dia =" (time:get "day" fecha) "; dia año = " (time:get "dayofyear" fecha) ) ]
+  if paso_un_ano? and any? embarcaciones [ print mean [tortugas_matadas] of embarcaciones / ano ]
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-320
-55
-835
-532
+315
+60
+838
+537
 -1
 -1
-13.0
+15.61
 1
 10
 1
@@ -128,9 +136,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-38
+32
 0
-35
+29
 1
 1
 1
@@ -138,10 +146,10 @@ ticks
 30.0
 
 BUTTON
-320
-10
-415
-55
+15
+555
+165
+600
 NIL
 INICIALIZAR
 NIL
@@ -155,10 +163,10 @@ NIL
 1
 
 BUTTON
-415
-10
-510
-55
+165
+555
+310
+600
 NIL
 EJECUTAR
 T
@@ -172,20 +180,20 @@ NIL
 1
 
 CHOOSER
-320
-530
-575
-575
+315
+540
+585
+585
 COLOREAR_POR
 COLOREAR_POR
-"tipo" "biomasa total" "biomasa total especie" "zonificacion" "biomasa, zonificacion y derrames" "hidrocarburo" "derrames" "habitat tortugas" "accidentes"
+"tipo" "biomasa total" "biomasa total especie" "zonificacion" "biomasa, zonificacion y derrames" "hidrocarburo" "derrames" "habitat tortugas" "accidentes" "asaltos"
 4
 
 SLIDER
-1990
-590
-2165
-623
+2490
+535
+2665
+568
 NUM_PUERTOS
 NUM_PUERTOS
 1
@@ -204,8 +212,8 @@ SLIDER
 NUM_EMBARCACIONES_PUERTO_1
 NUM_EMBARCACIONES_PUERTO_1
 0
-500
-500.0
+1000
+300.0
 1
 1
 NIL
@@ -242,9 +250,9 @@ NIL
 HORIZONTAL
 
 MONITOR
-840
+935
 10
-930
+1025
 55
 embarcaciones
 count embarcaciones
@@ -252,51 +260,36 @@ count embarcaciones
 1
 11
 
-SLIDER
-2490
-40
-2715
-73
-HORAS_DESCANSAR
-HORAS_DESCANSAR
-0
-168
-72.0
-1
-1
-horas
-HORIZONTAL
-
 CHOOSER
 2490
-215
+180
 2715
-260
+225
 SELECCION_SITIO_PESCA
 SELECCION_SITIO_PESCA
-"EEI" "aleatorio"
-0
+"EEI en radio" "EEI en region" "aleatorio"
+1
 
 SLIDER
-1990
-485
-2165
-518
+2490
+430
+2665
+463
 LONG_REGION_1
 LONG_REGION_1
 0
 50
-12.0
+5.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1990
-520
-2165
-553
+2490
+465
+2665
+498
 LONG_REGION_2
 LONG_REGION_2
 0
@@ -308,15 +301,15 @@ NIL
 HORIZONTAL
 
 SLIDER
-1990
-555
-2165
-588
+2490
+500
+2665
+533
 LONG_REGION_3
 LONG_REGION_3
 0
 50
-12.0
+13.0
 1
 1
 NIL
@@ -350,18 +343,18 @@ CHOOSER
 REGION_PESCA_EMBARCACIONES_PUERTO_3
 REGION_PESCA_EMBARCACIONES_PUERTO_3
 1 2 3
-0
+2
 
 SLIDER
 2490
-75
+40
 2715
-108
+73
 RADIO_EXPLORAR
 RADIO_EXPLORAR
 0
 10
-3.0
+2.0
 1
 1
 pixeles
@@ -369,9 +362,9 @@ HORIZONTAL
 
 SLIDER
 2490
-110
+75
 2715
-143
+108
 EPSILON
 EPSILON
 0
@@ -384,9 +377,9 @@ HORIZONTAL
 
 SWITCH
 2490
-260
+225
 2715
-293
+258
 CAMBIAR_SITIO_PESCA?
 CAMBIAR_SITIO_PESCA?
 0
@@ -395,9 +388,9 @@ CAMBIAR_SITIO_PESCA?
 
 SLIDER
 2490
-145
+110
 2715
-178
+143
 NUM_AMIGOS
 NUM_AMIGOS
 0
@@ -410,14 +403,14 @@ HORIZONTAL
 
 SLIDER
 2490
-180
+145
 2715
-213
+178
 VELOCIDAD
 VELOCIDAD
 0
 100
-10.0
+3.0
 1
 1
 km/hora
@@ -433,7 +426,7 @@ CAPTURABILIDAD_PUERTO_1
 0
 1
 0.01
-0.01
+0.001
 1
 NIL
 HORIZONTAL
@@ -499,16 +492,16 @@ INPUTBOX
 2475
 140
 BIOMASAS_INICIALES
-[400 400 400]
+[1000 1000 1000]
 1
 0
 String
 
 SLIDER
 2720
-405
+440
 2945
-438
+473
 PRECIO_LITRO_GAS
 PRECIO_LITRO_GAS
 0
@@ -521,14 +514,14 @@ HORIZONTAL
 
 SLIDER
 2720
-440
+475
 2945
-473
+508
 LITROS_POR_DISTANCIA
 LITROS_POR_DISTANCIA
 0
-1
-0.05
+3
+1.0
 0.01
 1
 NIL
@@ -536,14 +529,14 @@ HORIZONTAL
 
 SLIDER
 2720
-475
+510
 2945
-508
+543
 LITROS_POR_HORA_PESCA
 LITROS_POR_HORA_PESCA
 0
 1
-0.05
+1.0
 0.01
 1
 NIL
@@ -555,16 +548,16 @@ INPUTBOX
 2475
 205
 Ks
-[500 500 500]
+[5000 5000 5000]
 1
 0
 String
 
 PLOT
-840
-60
-1000
-180
+845
+125
+1005
+245
 captura total
 dias
 ton
@@ -577,15 +570,18 @@ false
 "" ""
 PENS
 "total" 1.0 0 -16777216 true "" ";;if paso_un_dia [plotxy dias sum capturas_dia_todo]"
-"puerto 1" 1.0 0 -2064490 true "" "if paso_un_dia and any? puertos with [num_puerto = 0] [plotxy dias sum [capturas_dia_puerto] of one-of puertos with [num_puerto = 0]]"
-"puerto 2" 1.0 0 -8630108 true "" "if paso_un_dia and any? puertos with [num_puerto = 1] [plotxy dias sum [capturas_dia_puerto] of one-of puertos with [num_puerto = 1]]"
-"puerto 3" 1.0 0 -13345367 true "" "if paso_un_dia and any? puertos with [num_puerto = 2] [plotxy dias sum [capturas_dia_puerto] of one-of puertos with [num_puerto = 2]]"
+"puerto 1" 1.0 0 -2064490 true "" "if paso_un_mes? and any? puertos with [num_puerto = 0] [plotxy dias sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 0]]"
+"puerto 2" 1.0 0 -8630108 true "" "if paso_un_mes? and any? puertos with [num_puerto = 1] [plotxy dias sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 1]]"
+"puerto 3" 1.0 0 -13345367 true "" "if paso_un_mes? and any? puertos with [num_puerto = 2] [plotxy dias sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 2]]"
+"pen-4" 1.0 0 -7500403 true "" ";;if paso_un_dia and any? puertos with [num_puerto = 0] [plotxy dias sum [capturas_dia_puerto] of one-of puertos with [num_puerto = 0]]"
+"pen-5" 1.0 0 -4539718 true "" "if paso_un_dia? and any? puertos with [num_puerto = 0] [plotxy dias sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 0]]"
+"pen-7" 1.0 0 -955883 true "" "if member? ticks ticks_registros_mes\n[ plotxy dias sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 0]] "
 
 PLOT
-840
-300
-1000
-420
+845
+365
+1005
+485
 gasto gasolina promedio
 dias
 $
@@ -598,15 +594,15 @@ false
 "" ""
 PENS
 "total" 1.0 0 -16777216 true "" ";;if paso_un_dia and gastos_gasolina_dia_todo != [] [ plotxy dias mean gastos_gasolina_dia_todo ]"
-"puerto 1" 1.0 0 -2064490 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 0] [\nifelse [gastos_gasolina_dia_puerto ] of one-of puertos with [num_puerto = 0]  != []\n[plotxy dias mean [gastos_gasolina_dia_puerto ] of one-of puertos with [num_puerto = 0]]\n[plotxy dias 0 ]]"
-"puerto 2" 1.0 0 -8630108 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 1] [\nifelse [gastos_gasolina_dia_puerto ] of one-of puertos with [num_puerto = 1]  != []\n[plotxy dias mean [gastos_gasolina_dia_puerto ] of one-of puertos with [num_puerto = 1]]\n[plotxy dias 0 ]]"
-"puerto 3" 1.0 0 -13345367 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 2] [\nifelse [gastos_gasolina_dia_puerto ] of one-of puertos with [num_puerto = 2]  != []\n[plotxy dias mean [gastos_gasolina_dia_puerto ] of one-of puertos with [num_puerto = 2]]\n[plotxy dias 0 ]]"
+"puerto 1" 1.0 0 -2064490 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 0] [\nifelse [gastos_gasolina_mes_puerto ] of one-of puertos with [num_puerto = 0]  != []\n[plotxy dias mean [gastos_gasolina_mes_puerto ] of one-of puertos with [num_puerto = 0]]\n[plotxy dias 0 ]]"
+"puerto 2" 1.0 0 -8630108 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 1] [\nifelse [gastos_gasolina_mes_puerto ] of one-of puertos with [num_puerto = 1]  != []\n[plotxy dias mean [gastos_gasolina_mes_puerto ] of one-of puertos with [num_puerto = 1]]\n[plotxy dias 0 ]]"
+"puerto 3" 1.0 0 -13345367 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 2] [\nifelse [gastos_gasolina_mes_puerto ] of one-of puertos with [num_puerto = 2]  != []\n[plotxy dias mean [gastos_gasolina_mes_puerto ] of one-of puertos with [num_puerto = 2]]\n[plotxy dias 0 ]]"
 
 PLOT
-840
-180
-1000
-300
+845
+245
+1005
+365
 ganancia total
 dias
 $
@@ -619,16 +615,16 @@ false
 "" ""
 PENS
 "promedio" 1.0 0 -16777216 true "" ";;if paso_un_dia and ganancias_dia_todo != [] [ plotxy dias mean ganancias_dia_todo ] "
-"puerto 1" 1.0 0 -2064490 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 0] [\nifelse [ganancias_dia_puerto] of one-of puertos with [num_puerto = 0]  != []\n[plotxy dias [sum ganancias_dia_puerto] of one-of puertos with [num_puerto = 0]]\n[plotxy dias 0 ]]"
-"puerto 2" 1.0 0 -8630108 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 1] [\nifelse [ganancias_dia_puerto] of one-of puertos with [num_puerto = 1]  != []\n[plotxy dias [sum ganancias_dia_puerto] of one-of puertos with [num_puerto = 1]]\n[plotxy dias 0 ]]"
-"puerto 3" 1.0 0 -13345367 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 2] and \n[ganancias_dia_puerto] of one-of puertos with [num_puerto = 2]  != []\n[plotxy dias [sum ganancias_dia_puerto] of one-of puertos with [num_puerto = 2]]"
-"0" 1.0 0 -4539718 true "" "if paso_un_dia [ plotxy dias 0 ]"
+"puerto 1" 1.0 0 -2064490 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 0] [\nifelse [ganancias_mes_puerto] of one-of puertos with [num_puerto = 0]  != []\n[plotxy dias [sum ganancias_mes_puerto] of one-of puertos with [num_puerto = 0]]\n[plotxy dias 0 ]]"
+"puerto 2" 1.0 0 -8630108 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 1] [\nifelse [ganancias_mes_puerto] of one-of puertos with [num_puerto = 1]  != []\n[plotxy dias [sum ganancias_mes_puerto] of one-of puertos with [num_puerto = 1]]\n[plotxy dias 0 ]]"
+"puerto 3" 1.0 0 -13345367 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 2] and \n[ganancias_mes_puerto] of one-of puertos with [num_puerto = 2]  != []\n[plotxy dias [sum ganancias_mes_puerto] of one-of puertos with [num_puerto = 2]]"
+"0" 1.0 0 -4539718 true "" "if paso_un_dia? [ plotxy dias 0 ]"
 
 CHOOSER
 2490
-295
+260
 2715
-340
+305
 SELELECCION_SITIO_PESCA_CONTINUACION
 SELELECCION_SITIO_PESCA_CONTINUACION
 "EEI" "mejor vecino" "un vecino"
@@ -636,9 +632,9 @@ SELELECCION_SITIO_PESCA_CONTINUACION
 
 CHOOSER
 2490
-340
+305
 2715
-385
+350
 SELECCION_MEJOR_SITIO
 SELECCION_MEJOR_SITIO
 "inicio de viaje" "mayor captura en viaje"
@@ -656,10 +652,10 @@ Ms
 String
 
 PLOT
-1370
-60
-1570
-220
+1375
+285
+1575
+445
 biomasa
 dias
 biomasa
@@ -672,9 +668,9 @@ false
 "" ""
 PENS
 "total" 1.0 0 -16777216 true "" ";;if paso_un_dia [plotxy dias sum [sum biomasas] of patches]"
-"especie 1" 1.0 0 -11221820 true "" "if paso_un_dia and _num_especies > 0 [plotxy dias sum[item 0 biomasas] of patches]"
-"especie 2" 1.0 0 -13791810 true "" "if paso_un_dia and _num_especies > 1 [plotxy dias sum[item 1 biomasas] of patches]"
-"especie 3" 1.0 0 -14070903 true "" "if paso_un_dia and _num_especies > 2 [plotxy dias sum[item 2 biomasas] of patches]"
+"especie 1" 1.0 0 -11221820 true "" "if paso_un_dia? and _num_especies > 0 [plotxy dias sum[item 0 biomasas] of patches]"
+"especie 2" 1.0 0 -13791810 true "" "if paso_un_dia? and _num_especies > 1 [plotxy dias sum[item 1 biomasas] of patches]"
+"especie 3" 1.0 0 -14070903 true "" "if paso_un_dia? and _num_especies > 2 [plotxy dias sum[item 2 biomasas] of patches]"
 
 INPUTBOX
 2290
@@ -682,15 +678,15 @@ INPUTBOX
 2475
 270
 Rs_min
-[0.6 0.6 0.6]
+[0.4 0.4 0.4]
 1
 0
 String
 
 MONITOR
-525
+770
 10
-590
+835
 55
 total dias 
 dias
@@ -699,9 +695,9 @@ dias
 11
 
 MONITOR
-610
+315
 10
-660
+365
 55
 año
 ano
@@ -778,7 +774,7 @@ HORAS_MAXIMAS_EN_MAR_PUERTO_2
 HORAS_MAXIMAS_EN_MAR_PUERTO_2
 1
 480
-24.0
+1.0
 1
 1
 NIL
@@ -793,17 +789,17 @@ HORAS_MAXIMAS_EN_MAR_PUERTO_3
 HORAS_MAXIMAS_EN_MAR_PUERTO_3
 1
 480
-24.0
+1.0
 1
 1
 NIL
 HORIZONTAL
 
 PLOT
-1000
-60
-1160
-180
+1005
+125
+1165
+245
 distancia recorrida promedio
 dias
 km
@@ -815,15 +811,15 @@ true
 false
 "" ""
 PENS
-"puerto 1" 1.0 0 -2064490 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 0] [\nifelse [distancias_recorridas_dia_puerto] of one-of puertos with [num_puerto = 0]  != []\n[plotxy dias [mean distancias_recorridas_dia_puerto] of one-of puertos with [num_puerto = 0] *  longitud_celda]\n[plotxy dias 0 ]]"
-"puerto 2" 1.0 0 -8630108 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 1] [\nifelse [distancias_recorridas_dia_puerto] of one-of puertos with [num_puerto = 1]  != []\n[plotxy dias [mean distancias_recorridas_dia_puerto] of one-of puertos with [num_puerto = 1] *  longitud_celda]\n[plotxy dias 0 ]]"
-"puerto 3" 1.0 0 -13345367 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 2] [\nifelse [distancias_recorridas_dia_puerto] of one-of puertos with [num_puerto = 2]  != []\n[plotxy dias [mean distancias_recorridas_dia_puerto] of one-of puertos with [num_puerto = 2] *  longitud_celda]\n[plotxy dias 0 ]]"
+"puerto 1" 1.0 0 -2064490 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 0] [\nifelse [distancias_recorridas_mes_puerto] of one-of puertos with [num_puerto = 0]  != []\n[plotxy dias [mean distancias_recorridas_mes_puerto] of one-of puertos with [num_puerto = 0] *  longitud_celda]\n[plotxy dias 0 ]]"
+"puerto 2" 1.0 0 -8630108 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 1] [\nifelse [distancias_recorridas_mes_puerto] of one-of puertos with [num_puerto = 1]  != []\n[plotxy dias [mean distancias_recorridas_mes_puerto] of one-of puertos with [num_puerto = 1] *  longitud_celda]\n[plotxy dias 0 ]]"
+"puerto 3" 1.0 0 -13345367 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 2] [\nifelse [distancias_recorridas_dia_puerto] of one-of puertos with [num_puerto = 2]  != []\n[plotxy dias [mean distancias_recorridas_dia_puerto] of one-of puertos with [num_puerto = 2] *  longitud_celda]\n[plotxy dias 0 ]]"
 
 PLOT
-1000
-180
-1160
-300
+1005
+245
+1165
+365
 horas en mar promedio
 dias
 hrs
@@ -835,15 +831,15 @@ true
 false
 "" ""
 PENS
-"puerto 1" 1.0 0 -2064490 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 0] [\nifelse [horas_en_mar_dia_puerto] of one-of puertos with [num_puerto = 0]  != []\n[plotxy dias [mean horas_en_mar_dia_puerto] of one-of puertos with [num_puerto = 0]]\n[plotxy dias 0 ]]"
-"puerto 2" 1.0 0 -8630108 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 1] [\nifelse [horas_en_mar_dia_puerto] of one-of puertos with [num_puerto = 1]  != []\n[plotxy dias [mean horas_en_mar_dia_puerto] of one-of puertos with [num_puerto = 1]]\n[plotxy dias 0 ]]"
-"puerto 3" 1.0 0 -13345367 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 2] [\nifelse [horas_en_mar_dia_puerto] of one-of puertos with [num_puerto = 2]  != []\n[plotxy dias [mean horas_en_mar_dia_puerto] of one-of puertos with [num_puerto = 2]]\n[plotxy dias 0 ]]"
+"puerto 1" 1.0 0 -2064490 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 0] [\nifelse [horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 0]  != []\n[plotxy dias [mean horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 0]]\n[plotxy dias 0 ]]"
+"puerto 2" 1.0 0 -8630108 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 1] [\nifelse [horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 1]  != []\n[plotxy dias [mean horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 1]]\n[plotxy dias 0 ]]"
+"puerto 3" 1.0 0 -13345367 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 2] [\nifelse [horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 2]  != []\n[plotxy dias [mean horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 2]]\n[plotxy dias 0 ]]"
 
 PLOT
-840
-420
-1000
-540
+845
+485
+1005
+605
 salario mensual pescador
 dias
 $
@@ -855,17 +851,17 @@ true
 false
 "" ""
 PENS
-"puerto 1" 1.0 0 -2064490 true "" "if paso_un_mes and \nany? puertos with [num_puerto = 0][\nifelse any? embarcaciones with [[num_puerto] of mi_puerto = 0 and activo?] \n[ plotxy dias mean [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 0]]\n[ plotxy dias 0 ]]"
-"puerto 2" 1.0 0 -8630108 true "" "if ticks = 0 or paso_un_mes and \nany? puertos with [num_puerto = 1][\nifelse any? embarcaciones with [[num_puerto] of mi_puerto = 1 and activo?] \n[ plotxy dias mean [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 1 ]]\n[ plotxy dias 0 ]]"
-"puerto 3" 1.0 0 -13345367 true "" "if ticks = 0 or paso_un_mes and \nany? puertos with [num_puerto = 2][\nifelse any? embarcaciones with [[num_puerto] of mi_puerto = 2 and activo?] \n[ plotxy dias mean [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 2 ]]\n[ plotxy dias 0 ]]"
-"umbral" 1.0 0 -4539718 true "" "if ticks = 0 or paso_un_mes [plotxy dias SALARIO_MENSUAL_MINIMO_ACEPTABLE ]"
+"puerto 1" 1.0 0 -2064490 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 0][\nifelse any? embarcaciones with [[num_puerto] of mi_puerto = 0 and activo?] \n[ plotxy dias mean [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 0]]\n[ plotxy dias 0 ]]"
+"puerto 2" 1.0 0 -8630108 true "" "if ticks = 0 or paso_un_mes? and \nany? puertos with [num_puerto = 1][\nifelse any? embarcaciones with [[num_puerto] of mi_puerto = 1 and activo?] \n[ plotxy dias mean [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 1 ]]\n[ plotxy dias 0 ]]"
+"puerto 3" 1.0 0 -13345367 true "" "if ticks = 0 or paso_un_mes? and \nany? puertos with [num_puerto = 2][\nifelse any? embarcaciones with [[num_puerto] of mi_puerto = 2 and activo?] \n[ plotxy dias mean [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 2 ]]\n[ plotxy dias 0 ]]"
+"umbral" 1.0 0 -4539718 true "" "if ticks = 0 or paso_un_mes? [plotxy dias SALARIO_MENSUAL_MINIMO_ACEPTABLE ]"
 
 PLOT
-1000
-300
-1160
-420
-viajes finalizados
+1005
+365
+1165
+485
+viajes finalizados promedio
 dias
 num
 0.0
@@ -876,9 +872,9 @@ true
 false
 "" ""
 PENS
-"puerto 1" 1.0 0 -2064490 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 0] [\nifelse [horas_en_mar_dia_puerto] of one-of puertos with [num_puerto = 0]  != []\n[ plotxy dias mean [viajes_finalizados_dia_puerto] of puertos with [num_puerto = 0]]\n[ plotxy dias 0 ]]"
-"puerto 2" 1.0 0 -8630108 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 1] [\nifelse [horas_en_mar_dia_puerto] of one-of puertos with [num_puerto = 1]  != []\n[ plotxy dias mean [viajes_finalizados_dia_puerto] of puertos with [num_puerto = 1]]\n[ plotxy dias 0 ]]"
-"puerto 3" 1.0 0 -13345367 true "" "if paso_un_dia and \nany? puertos with [num_puerto = 2] [\nifelse [horas_en_mar_dia_puerto] of one-of puertos with [num_puerto = 2]  != []\n[ plotxy dias mean [viajes_finalizados_dia_puerto] of puertos with [num_puerto = 2]]\n[ plotxy dias 0 ]]"
+"puerto 1" 1.0 0 -2064490 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 0] [\nifelse [horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 0]  != []\n[ plotxy dias sum [viajes_finalizados_mes_puerto] of puertos with [num_puerto = 0] / NUMERO_EMBARCACIONES ]\n[ plotxy dias 0 ]]"
+"puerto 2" 1.0 0 -8630108 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 1] [\nifelse [horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 1]  != []\n[ plotxy dias sum [viajes_finalizados_mes_puerto] of puertos with [num_puerto = 1]]\n[ plotxy dias 0 ]]"
+"puerto 3" 1.0 0 -13345367 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 2] [\nifelse [horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 2]  != []\n[ plotxy dias mean [viajes_finalizados_mes_puerto] of puertos with [num_puerto = 2]]\n[ plotxy dias 0 ]]"
 
 SLIDER
 1990
@@ -896,10 +892,10 @@ NIL
 HORIZONTAL
 
 BUTTON
-1695
-420
-1930
-453
+1995
+555
+2230
+588
 NIL
 SELECCIONAR_ZONAS_PROTEGER
 T
@@ -913,10 +909,10 @@ NIL
 1
 
 BUTTON
-1695
-385
-1930
-418
+1995
+520
+2230
+553
 NIL
 SELECCIONAR_ZONAS_RESTRICCION
 T
@@ -930,10 +926,10 @@ NIL
 1
 
 BUTTON
-1695
-350
-1930
-383
+1995
+485
+2230
+518
 NIL
 COLOCAR_PLATAFORMAS
 T
@@ -947,10 +943,10 @@ NIL
 1
 
 MONITOR
-1515
-390
-1580
-435
+1500
+10
+1565
+55
 NIL
 timer
 17
@@ -958,10 +954,10 @@ timer
 11
 
 MONITOR
-1515
-435
-1580
-480
+1500
+55
+1565
+100
 minutos
 timer / 60
 17
@@ -970,14 +966,14 @@ timer / 60
 
 SLIDER
 15
-330
+515
 310
-363
+548
 RADIO_RESTRICCION_PLATAFORMAS
 RADIO_RESTRICCION_PLATAFORMAS
 0
-3
-3.0
+10
+2.0
 1
 1
 pixeles
@@ -999,10 +995,10 @@ NIL
 HORIZONTAL
 
 PLOT
-1165
-60
-1365
-220
+1170
+125
+1370
+285
 producción diaria hidrocarburo 
 dias
 barriles
@@ -1014,7 +1010,7 @@ true
 false
 "" ""
 PENS
-"total" 1.0 1 -16777216 true "" "if paso_un_dia [ plotxy dias sum [produccion_dia] of plataformas ]"
+"total" 1.0 1 -16777216 true "" "if paso_un_dia? [ plotxy dias sum [ produccion_dia_hidrocarburo] of plataformas]"
 
 SLIDER
 1990
@@ -1025,7 +1021,7 @@ COSTO_TRANSPORTE_POR_UNIDAD_DISTANCIA
 COSTO_TRANSPORTE_POR_UNIDAD_DISTANCIA
 0
 1000
-10.0
+500.0
 10
 1
 NIL
@@ -1040,17 +1036,17 @@ PRECIO_CRUDO
 PRECIO_CRUDO
 0
 100000
-100000.0
+10000.0
 100
 1
 $
 HORIZONTAL
 
 BUTTON
-575
-530
-705
-575
+585
+540
+715
+585
 NIL
 colorear_celdas
 NIL
@@ -1065,9 +1061,9 @@ NIL
 
 SLIDER
 15
-365
+435
 310
-398
+468
 SUBSIDIO_MENSUAL_GASOLINA
 SUBSIDIO_MENSUAL_GASOLINA
 0
@@ -1087,7 +1083,7 @@ UMBRAL_BIOMASA_SOSTENIBLE
 UMBRAL_BIOMASA_SOSTENIBLE
 0
 100
-0.0
+10.0
 1
 1
 %
@@ -1095,11 +1091,11 @@ HORIZONTAL
 
 SLIDER
 1695
-285
+355
 1975
-318
-PORCENTAJE_MAXIMO_EMBARCACIONES_QUIEBRA
-PORCENTAJE_MAXIMO_EMBARCACIONES_QUIEBRA
+388
+PORCENTAJE_MAX_EMBARCACIONES_QUIEBRA
+PORCENTAJE_MAX_EMBARCACIONES_QUIEBRA
 0
 100
 50.0
@@ -1110,14 +1106,14 @@ HORIZONTAL
 
 SLIDER
 15
-250
+180
 310
-283
+213
 NUMERO_DE_PLATAFORMAS
 NUMERO_DE_PLATAFORMAS
 0
 30
-10.0
+0.0
 1
 1
 plataformas
@@ -1125,9 +1121,9 @@ HORIZONTAL
 
 CHOOSER
 15
-285
+215
 310
-330
+260
 REGION_DE_PLATAFORMAS
 REGION_DE_PLATAFORMAS
 1 2 3
@@ -1135,9 +1131,9 @@ REGION_DE_PLATAFORMAS
 
 SLIDER
 1990
-215
+180
 2275
-248
+213
 MAX_PROB_OCURRENCIA_DERRAME
 MAX_PROB_OCURRENCIA_DERRAME
 0
@@ -1150,9 +1146,9 @@ HORIZONTAL
 
 SLIDER
 1990
-285
+250
 2275
-318
+283
 PROB_EXTENSION_DERRAME
 PROB_EXTENSION_DERRAME
 0
@@ -1165,14 +1161,14 @@ HORIZONTAL
 
 SLIDER
 1990
-320
+285
 2275
-353
+318
 TIEMPO_DERRAMADO
 TIEMPO_DERRAMADO
 0
 100
-60.0
+50.0
 1
 1
 NIL
@@ -1180,24 +1176,24 @@ HORIZONTAL
 
 SLIDER
 1990
-355
+320
 2275
-388
+353
 TASA_MORTALIDAD_DERRAME
 TASA_MORTALIDAD_DERRAME
 0
 1
-0.75
+0.5
 0.01
 1
 NIL
 HORIZONTAL
 
 PLOT
-1370
-220
-1570
-380
+1375
+445
+1575
+605
 numero de tortugas
 dias
 tortugas
@@ -1209,7 +1205,7 @@ true
 false
 "" ""
 PENS
-"total" 1.0 0 -13840069 true "" "if paso_un_dia [ plotxy dias count tortugas ]"
+"total" 1.0 0 -13840069 true "" "if paso_un_dia? [ plotxy dias count tortugas ]"
 
 SLIDER
 1695
@@ -1220,7 +1216,7 @@ TAMANIO_POB_INICIAL_TORTUGAS
 TAMANIO_POB_INICIAL_TORTUGAS
 0
 300
-150.0
+100.0
 1
 1
 NIL
@@ -1234,8 +1230,8 @@ SLIDER
 MAX_CAPACIDAD_CARGA_TORTUGAS
 MAX_CAPACIDAD_CARGA_TORTUGAS
 1
-5
-5.0
+20
+3.0
 1
 1
 NIL
@@ -1249,8 +1245,8 @@ SLIDER
 PROB_MORTALIDAD_TORTUGA_POR_PESCA
 PROB_MORTALIDAD_TORTUGA_POR_PESCA
 0
-1
-0.008
+0.1
+0.003
 0.001
 1
 NIL
@@ -1265,42 +1261,42 @@ NUM_DESCENDIENTES_TORTUGAS
 NUM_DESCENDIENTES_TORTUGAS
 1
 5
-2.0
+1.0
 1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-2720
-510
-2945
-543
-MESES_PARA_COLAPSO
-MESES_PARA_COLAPSO
+1695
+320
+1975
+353
+MESES_PARA_COLAPSO_EMBARCACION
+MESES_PARA_COLAPSO_EMBARCACION
 0
 12
-6.0
+2.0
 1
 1
 NIL
 HORIZONTAL
 
 SWITCH
-15
-525
-160
-558
-VEDA_ENE_FEB
-VEDA_ENE_FEB
+3225
+375
+3335
+408
+VEDA_ENE
+VEDA_ENE
 1
 1
 -1000
 
 MONITOR
-660
+365
 10
-710
+415
 55
 mes
 time:show fecha \"MM\"
@@ -1309,9 +1305,9 @@ time:show fecha \"MM\"
 11
 
 MONITOR
-710
+415
 10
-760
+465
 55
 día
 time:show fecha \"dd\"
@@ -1320,65 +1316,65 @@ time:show fecha \"dd\"
 11
 
 SWITCH
-15
-560
-160
-593
-VEDA_MAR_ABR
-VEDA_MAR_ABR
+3225
+445
+3335
+478
+VEDA_MAR
+VEDA_MAR
 1
 1
 -1000
 
 SWITCH
-15
-595
-160
-628
-VEDA_MAY_JUN
-VEDA_MAY_JUN
+3335
+375
+3445
+408
+VEDA_MAY
+VEDA_MAY
 1
 1
 -1000
 
 SWITCH
-160
-525
-305
-558
-VEDA_JUL_AGO
-VEDA_JUL_AGO
+3335
+445
+3445
+478
+VEDA_JUL
+VEDA_JUL
 1
 1
 -1000
 
 SWITCH
-160
-560
-305
-593
-VEDA_SEP_OCT
-VEDA_SEP_OCT
+3445
+375
+3555
+408
+VEDA_SEP
+VEDA_SEP
 1
 1
 -1000
 
 SWITCH
-160
-595
-305
-628
-VEDA_NOV_DIC
-VEDA_NOV_DIC
+3445
+445
+3555
+478
+VEDA_NOV
+VEDA_NOV
 1
 1
 -1000
 
 PLOT
-1165
-220
-1365
-380
+1170
+285
+1370
+445
 produccion acumulada petroleo
 dias
 barriles
@@ -1390,13 +1386,13 @@ true
 false
 "" ""
 PENS
-"default" 1.0 1 -16777216 true "" "if paso_un_dia [ plotxy dias produccion_total ]"
+"default" 1.0 1 -16777216 true "" "if paso_un_dia? [ plotxy dias produccion_total_hidrocarburo ]"
 
 PLOT
-1165
-380
-1365
-540
+1170
+445
+1370
+605
 ganancia petroleo
 dias
 $ (MDP)
@@ -1408,17 +1404,17 @@ true
 false
 "" ""
 PENS
-"default" 1.0 0 -16777216 true "" ";if paso_un_mes [ plotxy dias ganancia_acumulada_petroleo / 1000000 ]\nif paso_un_mes [ plotxy dias ganancia_mensual_petroleo ]\n"
-"0" 1.0 0 -7500403 true "" "if paso_un_dia [ plotxy dias 0 ]"
+"default" 1.0 0 -16777216 true "" "if paso_un_mes? [ plotxy dias ganancia_mes_hidrocarburo ]\n"
+"umbral" 1.0 0 -7500403 true "" "if paso_un_dia? [ plotxy dias 0]"
 
 CHOOSER
 15
-110
+115
 310
-155
+160
 REGION_DONDE_PESCAR
 REGION_DONDE_PESCAR
-"Region 1: camarón" "Region 2: escama" "Region 3: huachinango"
+"Linea de costa: camarón" "Plataformas: escama" "Profundo: huachinango"
 0
 
 TEXTBOX
@@ -1433,14 +1429,14 @@ SECTOR PESQUERO
 
 SLIDER
 15
-75
+80
 310
-108
+113
 NUMERO_EMBARCACIONES
 NUMERO_EMBARCACIONES
 0
-1000
-500.0
+500
+300.0
 10
 1
 embarcaciones
@@ -1448,9 +1444,9 @@ HORIZONTAL
 
 CHOOSER
 15
-155
+470
 310
-200
+515
 TIPO_DE_EMBARCACIONES
 TIPO_DE_EMBARCACIONES
 "pequeña escala (1 ton, 3 tripulantes)" "semi-industrial (10 ton, 5 tripulantes)"
@@ -1501,21 +1497,6 @@ TAMANIO_TRIPULACION_PUERTO_3
 NIL
 HORIZONTAL
 
-SLIDER
-15
-200
-310
-233
-MAXIMA_JORNADA_DE_PESCA
-MAXIMA_JORNADA_DE_PESCA
-1
-480
-12.0
-1
-1
-horas
-HORIZONTAL
-
 TEXTBOX
 2490
 10
@@ -1528,9 +1509,9 @@ PESCA
 
 TEXTBOX
 20
-235
+165
 170
-253
+183
 SECTOR PETROLERO
 12
 0.0
@@ -1538,9 +1519,9 @@ SECTOR PETROLERO
 
 INPUTBOX
 2720
-335
+370
 2945
-405
+440
 PRECIOS_KILO_BIOMASA
 [5 5 5 ]
 1
@@ -1548,10 +1529,10 @@ PRECIOS_KILO_BIOMASA
 String
 
 SLIDER
-2720
-545
-2945
-578
+1695
+285
+1975
+318
 SALARIO_MENSUAL_MINIMO_ACEPTABLE
 SALARIO_MENSUAL_MINIMO_ACEPTABLE
 0
@@ -1563,10 +1544,10 @@ $/mes
 HORIZONTAL
 
 PLOT
-1000
-420
-1160
-540
+1005
+485
+1165
+605
 estado económico embarcaciones
 dias
 num
@@ -1578,15 +1559,15 @@ true
 false
 "" ""
 PENS
-"viable" 1.0 0 -13840069 true "" "if paso_un_mes [ plotxy dias count embarcaciones with [ estado_economico = \"viable\" ]]"
-"crisis" 1.0 0 -1184463 true "" "if paso_un_mes [ plotxy dias count embarcaciones with [ estado_economico = \"crisis\" ]]"
-"quiebra" 1.0 0 -2674135 true "" "if paso_un_mes [ plotxy dias count embarcaciones with [ estado_economico = \"quiebra\" ]]"
+"viable" 1.0 0 -13840069 true "" "if paso_un_mes? [ plotxy dias count embarcaciones with [ estado_economico = \"viable\" ]]"
+"crisis" 1.0 0 -1184463 true "" "if paso_un_mes? [ plotxy dias count embarcaciones with [ estado_economico = \"crisis\" ]]"
+"quiebra" 1.0 0 -2674135 true "" "if paso_un_mes? [ plotxy dias count embarcaciones with [ estado_economico = \"quiebra\" ]]"
 
 SLIDER
 15
-400
+260
 310
-433
+293
 GASTO_EN_MANTENIMIENTO
 GASTO_EN_MANTENIMIENTO
 0
@@ -1599,25 +1580,25 @@ HORIZONTAL
 
 SLIDER
 1990
-250
+215
 2275
-283
+248
 MIN_PROB_OCURRENCIA_DERRAME
 MIN_PROB_OCURRENCIA_DERRAME
 0
 1
-0.003
+0.01
 0.001
 1
 NIL
 HORIZONTAL
 
 MONITOR
-1370
-385
-1495
-430
-número de derrames
+1210
+305
+1275
+350
+derrames
 num_derrames
 0
 1
@@ -1643,32 +1624,6 @@ HIDROCARBUROS
 0.0
 1
 
-SLIDER
-1990
-180
-2275
-213
-PROB_ACCIDENTE
-PROB_ACCIDENTE
-0
-1
-0.005
-0.001
-1
-NIL
-HORIZONTAL
-
-MONITOR
-1370
-430
-1495
-475
-NIL
-num_accidentes
-17
-1
-11
-
 CHOOSER
 15
 10
@@ -1677,22 +1632,22 @@ CHOOSER
 RONDA
 RONDA
 "NA" "Ronda 1 (sector pesquero)" "Ronda 1 (sector petrolero)" "Ronda 1 (sector conservación)"
-1
+0
 
 TEXTBOX
 20
-440
+295
 170
-458
+313
 SECTOR CONSERVACIÓN
 12
 0.0
 1
 
 TEXTBOX
-770
+845
 25
-840
+915
 43
 ENTRADAS
 12
@@ -1700,28 +1655,17 @@ ENTRADAS
 1
 
 TEXTBOX
-780
-555
-855
-573
+845
+70
+920
+88
 SALIDAS
 12
 0.0
 1
 
 MONITOR
-930
-10
-1020
-55
-jornada pesca
-MAXIMA_JORNADA_DE_PESCA
-17
-1
-11
-
-MONITOR
-1020
+1025
 10
 1110
 55
@@ -1732,9 +1676,9 @@ REGION_PESCA_EMBARCACIONES_PUERTO_1
 11
 
 MONITOR
-1110
+1120
 10
-1200
+1195
 55
 plataformas
 count plataformas
@@ -1743,9 +1687,9 @@ count plataformas
 11
 
 MONITOR
-1200
+1195
 10
-1290
+1275
 55
 región plataformas
 REGION_DE_PLATAFORMAS
@@ -1756,7 +1700,7 @@ REGION_DE_PLATAFORMAS
 MONITOR
 1290
 10
-1380
+1365
 55
 área restricción
 count patches with [ zonificacion = \"restriccion\" ]
@@ -1765,54 +1709,54 @@ count patches with [ zonificacion = \"restriccion\" ]
 11
 
 MONITOR
-1380
+1365
 10
-1470
+1492
 55
-área protegida
-count patches with [ zonificacion = \"protegido\" ]
-17
+área protegida (ha)
+count patches with [ zonificacion = \"protegido\" ] * (longitud_celda ^ 2) * 100
+0
 1
 11
 
 MONITOR
-840
-545
-905
-590
+1065
+60
+1130
+105
 captura
-sum [capturas_dia_puerto] of one-of puertos with [num_puerto = 0]
+sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 0]
 0
 1
 11
 
 MONITOR
-905
-545
-975
-590
+1130
+60
+1200
+105
 ganancia
-[sum ganancias_dia_puerto] of one-of puertos with [num_puerto = 0]
+[sum ganancias_mes_puerto] of one-of puertos with [num_puerto = 0]
 0
 1
 11
 
 MONITOR
-975
-545
-1065
-590
+1200
+60
+1290
+105
 gasto gasolina
-mean [gastos_gasolina_dia_puerto ] of one-of puertos with [num_puerto = 0]
+mean [gastos_gasolina_mes_puerto ] of one-of puertos with [num_puerto = 0]
 0
 1
 11
 
 MONITOR
-1065
-545
-1145
-590
+1290
+60
+1370
+105
 biomasa
 sum [sum biomasas] of patches
 0
@@ -1820,10 +1764,10 @@ sum [sum biomasas] of patches
 11
 
 MONITOR
-1145
-545
-1225
-590
+1370
+60
+1450
+105
 tortugas
 count tortugas
 0
@@ -1831,43 +1775,43 @@ count tortugas
 11
 
 MONITOR
-1225
-545
-1385
-590
-tiempo pesqueria sostenible
-0
-0
-1
-11
-
-MONITOR
-1385
-500
-1545
-545
-tiempo petroleo rentable
-0
+1375
+110
+1565
+155
+NIL
+tiempo_pesca_sostenible
 0
 1
 11
 
 MONITOR
-1385
-545
-1545
-590
-tiempo poblaciones viables
+1375
+155
+1565
+200
+NIL
+tiempo_hidrocarburo_sostenible
 0
+1
+11
+
+MONITOR
+1375
+200
+1565
+245
+NIL
+tiempo_biomasa_sostenible
 17
 1
 11
 
 TEXTBOX
-1995
-430
-2145
-448
+2495
+375
+2645
+393
 PAISAJE
 12
 0.0
@@ -1914,7 +1858,7 @@ INPUTBOX
 2475
 515
 DIAS_REPRODUCCION
-[10 20 30 ]
+[180 200 200 ]
 1
 0
 String
@@ -1925,7 +1869,7 @@ INPUTBOX
 2475
 340
 Rs_max
-[0.8 0.8 0.8]
+[0.7 0.7 0.7]
 1
 0
 String
@@ -1964,10 +1908,10 @@ ESPECIES_PESCA_PUERTO_3
 String
 
 SLIDER
-1990
-450
-2165
-483
+2490
+395
+2665
+428
 LONG_TIERRA
 LONG_TIERRA
 1
@@ -1980,9 +1924,9 @@ HORIZONTAL
 
 SWITCH
 1695
-470
-1850
-503
+565
+1815
+598
 PRUEBA?
 PRUEBA?
 1
@@ -1996,19 +1940,19 @@ SLIDER
 423
 VELOCIDAD_BUQUES
 VELOCIDAD_BUQUES
-1
+0
 10
-5.0
+10.0
 1
 1
 NIL
 HORIZONTAL
 
 INPUTBOX
-1695
-505
-1850
+1815
 565
+1915
+625
 ANOS_PRUEBA
 1.0
 1
@@ -2017,14 +1961,14 @@ Number
 
 SLIDER
 15
-455
 310
-488
+310
+343
 ANCHO_ZONA_PROTEGIDA
 ANCHO_ZONA_PROTEGIDA
 0
 17
-10.0
+0.0
 1
 1
 pixeles
@@ -2032,28 +1976,285 @@ HORIZONTAL
 
 SLIDER
 15
-490
+345
 310
-523
+378
 LARGO_ZONA_PROTEGIDA
 LARGO_ZONA_PROTEGIDA
 0
-30
-10.0
+35
+0.0
 1
 1
 pixeles
 HORIZONTAL
 
 TEXTBOX
-1695
-325
-1845
-343
+1995
+460
+2145
+478
 EDICIÓN INTERACTIVA
 12
 0.0
 1
+
+SLIDER
+1695
+390
+1975
+423
+UMBRAL_INGRESO_MIN_PETROLEO
+UMBRAL_INGRESO_MIN_PETROLEO
+0
+100
+1.0
+1
+1
+MDP
+HORIZONTAL
+
+SLIDER
+1695
+425
+1975
+458
+MESES_PARA_COLAPSO_PETROLEO
+MESES_PARA_COLAPSO_PETROLEO
+0
+12
+3.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+935
+60
+1065
+105
+embarcaciones activas
+count embarcaciones with [ activo? ]
+17
+1
+11
+
+SLIDER
+2720
+325
+2995
+358
+HORAS_DESCANSAR_PUERTO_1
+HORAS_DESCANSAR_PUERTO_1
+0
+300
+24.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+3000
+325
+3275
+358
+HORAS_DESCANSAR_PUERTO_2
+HORAS_DESCANSAR_PUERTO_2
+0
+100
+72.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+3280
+325
+3555
+358
+HORAS_DESCANSAR_PUERTO_3
+HORAS_DESCANSAR_PUERTO_3
+0
+100
+72.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+3605
+155
+4135
+306
+Region 1:\nviajar 5-6 veces a la semana -> HORAS_DESCANSAR_PUERTO_1 = 30 -> 5.6 veces por semana, 1.6-4.2-9 horas en mar..., 9-45-30 km\nRegion 2:\nviajar 2-3 veces a la semana -> HORAS_DESCANSAR_PUERTO_1 = 72 -> 2.5 veces por semana, 2-4.6-9 horas en mar..., 32-73-? km\nRegion 3:\nviajar 0.5 veces a la semana -> HORAS_DESCANSAR_PUERTO_1 = 300 -> 0.6 veces por semana, 3.3-6-? horas en mar..., 87-93-? km
+12
+0.0
+1
+
+SWITCH
+15
+380
+310
+413
+VEDA_TEMPORAL
+VEDA_TEMPORAL
+1
+1
+-1000
+
+SWITCH
+3225
+410
+3335
+443
+VEDA_FEB
+VEDA_FEB
+1
+1
+-1000
+
+SWITCH
+3225
+480
+3335
+513
+VEDA_ABR
+VEDA_ABR
+1
+1
+-1000
+
+SWITCH
+3335
+410
+3445
+443
+VEDA_JUN
+VEDA_JUN
+1
+1
+-1000
+
+SWITCH
+3335
+480
+3445
+513
+VEDA_AGO
+VEDA_AGO
+1
+1
+-1000
+
+SWITCH
+3445
+410
+3555
+443
+VEDA_OCT
+VEDA_OCT
+1
+1
+-1000
+
+SWITCH
+3445
+480
+3555
+513
+VEDA_DIC
+VEDA_DIC
+1
+1
+-1000
+
+TEXTBOX
+20
+415
+170
+433
+POLÍTICAS
+12
+0.0
+1
+
+SWITCH
+1695
+495
+1887
+528
+DETENER_SI_PIERDE?
+DETENER_SI_PIERDE?
+1
+1
+-1000
+
+SLIDER
+1695
+460
+1975
+493
+NUMERO_MINIMO_TORTUGAS
+NUMERO_MINIMO_TORTUGAS
+0
+300
+20.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+1375
+245
+1565
+290
+NIL
+tiempo_tortugas_sostenible
+17
+1
+11
+
+SWITCH
+1695
+530
+1892
+563
+MOSTRAR_MENSAJES?
+MOSTRAR_MENSAJES?
+1
+1
+-1000
+
+SWITCH
+2290
+515
+2475
+548
+BIOMASA_INICIAL_K?
+BIOMASA_INICIAL_K?
+0
+1
+-1000
+
+SLIDER
+1990
+355
+2275
+388
+MORTALIDAD_TORTUGAS_DERRAME
+MORTALIDAD_TORTUGAS_DERRAME
+0
+1
+0.15
+0.01
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -2119,6 +2320,16 @@ true
 0
 Polygon -7500403 true true 150 0 0 150 105 150 105 293 195 293 195 150 300 150
 
+barco
+false
+1
+Polygon -7500403 true false 30 150 150 180 270 150 150 210
+Polygon -1 true false 90 240 90 240 30 150 150 210 90 240 90 240
+Polygon -1 true false 210 240 210 240 270 150 150 210 210 240 210 240
+Polygon -7500403 true false 90 240 210 240 150 210 90 240
+Polygon -2674135 true true 150 210 150 120 210 180
+Polygon -2674135 true true 150 210 150 120 90 180
+
 barco crisis
 false
 0
@@ -2145,6 +2356,16 @@ Rectangle -6459832 true false 150 32 157 162
 Polygon -13840069 true false 150 34 131 49 145 47 147 48 149 49
 Polygon -7500403 true true 158 33 230 157 182 150 169 151 157 156
 Polygon -7500403 true true 149 55 88 143 103 139 111 136 117 139 126 145 130 147 139 147 146 146 149 55
+
+barco1
+false
+1
+Polygon -7500403 true false 45 180 60 165 255 165 270 180 45 180
+Polygon -1 true false 60 180 45 180 45 195 60 195 90 225 225 225 255 195 270 195 270 180 255 180
+Polygon -1 true false 45 180 270 180 270 195 45 195 45 180 45 180
+Rectangle -6459832 true false 150 60 165 180
+Polygon -2674135 true true 150 60 90 150 150 165 150 60
+Polygon -2674135 true true 165 60 225 150 165 165 165 60
 
 boat
 false
@@ -2182,6 +2403,15 @@ Circle -7500403 true true 110 127 80
 Circle -7500403 true true 110 75 80
 Line -7500403 true 150 100 80 30
 Line -7500403 true 150 100 220 30
+
+buque
+false
+0
+Polygon -2674135 true false 0 150 45 150 120 150 300 150 300 195 270 240 30 240 0 180
+Rectangle -16777216 true false 0 150 300 195
+Rectangle -1 true false 15 105 90 150
+Rectangle -16777216 true false 45 75 60 105
+Rectangle -16777216 true false 15 75 90 90
 
 butterfly
 true
@@ -2485,6 +2715,525 @@ NetLogo 6.4.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
+<experiments>
+  <experiment name="calibracion_pesca_00" repetitions="30" runMetricsEveryStep="false">
+    <setup>INICIALIZAR</setup>
+    <go>EJECUTAR</go>
+    <postRun>export-view (word "/home/lggj/PARA/proyectos/PePe_ecosur/modelo_PePe/calibarcion/output/imgs/" behaviorspace-experiment-name "-"  behaviorspace-run-number)</postRun>
+    <timeLimit steps="366"/>
+    <metric>sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 0]</metric>
+    <metric>([sum distancias_recorridas_mes_puerto] of one-of puertos with [num_puerto = 0] *  longitud_celda) / NUMERO_EMBARCACIONES</metric>
+    <metric>[sum ganancias_mes_puerto] of one-of puertos with [num_puerto = 0]</metric>
+    <metric>[sum horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 0] / NUMERO_EMBARCACIONES</metric>
+    <metric>sum [gastos_gasolina_mes_puerto ] of one-of puertos with [num_puerto = 0] / NUMERO_EMBARCACIONES</metric>
+    <metric>sum [viajes_finalizados_mes_puerto] of puertos with [num_puerto = 0]</metric>
+    <metric>sum [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 0] / NUMERO_EMBARCACIONES</metric>
+    <metric>count embarcaciones with [ estado_economico = "viable" ]</metric>
+    <metric>count embarcaciones with [ estado_economico = "crisis" ]</metric>
+    <metric>count embarcaciones with [ estado_economico = "quiebra" ]</metric>
+    <metric>sum[item 0 biomasas] of patches</metric>
+    <metric>sum[item 1 biomasas] of patches</metric>
+    <metric>sum[item 2 biomasas] of patches</metric>
+    <metric>count tortugas</metric>
+    <metric>tiempo_pesca_sostenible</metric>
+    <metric>tiempo_hidrocarburo_sostenible</metric>
+    <metric>tiempo_biomasa_sostenible</metric>
+    <metric>tiempo_tortugas_sostenible</metric>
+    <metric>num_derrames</metric>
+    <metric>produccion_mes_hidrocarburo</metric>
+    <metric>produccion_total_hidrocarburo</metric>
+    <metric>ganancia_mes_hidrocarburo</metric>
+    <runMetricsCondition>member? ticks [ 0 31  60  91 121 152 182 213 244 274 305 335 366 ]</runMetricsCondition>
+    <enumeratedValueSet variable="RONDA">
+      <value value="&quot;NA&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUMERO_EMBARCACIONES">
+      <value value="300"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="REGION_DONDE_PESCAR">
+      <value value="&quot;Linea de costa: camarón&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUMERO_DE_PLATAFORMAS">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="REGION_DE_PLATAFORMAS">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="GASTO_EN_MANTENIMIENTO">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_TEMPORAL">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ANCHO_ZONA_PROTEGIDA">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LARGO_ZONA_PROTEGIDA">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SUBSIDIO_MENSUAL_GASOLINA">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="TIPO_DE_EMBARCACIONES">
+      <value value="&quot;pequeña escala (1 ton, 3 tripulantes)&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="RADIO_RESTRICCION_PLATAFORMAS">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUM_ESPECIES">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Ks">
+      <value value="&quot;[1000 1000 1000]&quot;"/>
+      <value value="&quot;[2000 2000 2000]&quot;"/>
+      <value value="&quot;[3000 3000 3000]&quot;"/>
+      <value value="&quot;[4000 4000 4000]&quot;"/>
+      <value value="&quot;[5000 5000 5000]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="BIOMASAS_INICIALES">
+      <value value="&quot;[1000 1000 1000]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="BIOMASA_INICIAL_K?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Rs_min">
+      <value value="&quot;[0.4 0.4 0.4]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Rs_max">
+      <value value="&quot;[0.6 0.6 0.6]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Ms">
+      <value value="&quot;[.0025 .0025 .0025]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="DISTRIBUCION_ESPECIES">
+      <value value="&quot;dif spp en cada region&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="DIAS_REPRODUCCION">
+      <value value="&quot;[180 200 200 ]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="TAMANIO_POB_INICIAL_TORTUGAS">
+      <value value="200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PROB_MORTALIDAD_TORTUGA_POR_PESCA">
+      <value value="0.008"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUM_DESCENDIENTES_TORTUGAS">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MAX_CAPACIDAD_CARGA_TORTUGAS">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="DIA_REPRODUCCION_TORTUGAS">
+      <value value="182"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="RADIO_EXPLORAR">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="EPSILON">
+      <value value="0.2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUM_AMIGOS">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SELECCION_SITIO_PESCA">
+      <value value="&quot;EEI&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SELELECCION_SITIO_PESCA_CONTINUACION">
+      <value value="&quot;un vecino&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SELECCION_MEJOR_SITIO">
+      <value value="&quot;mayor captura en viaje&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="CAMBIAR_SITIO_PESCA?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VELOCIDAD">
+      <value value="1"/>
+      <value value="2"/>
+      <value value="3"/>
+      <value value="5"/>
+      <value value="10"/>
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_ENE">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_FEB">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_MAR">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_ABR">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_MAY">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_JUN">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_JUL">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_AGO">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_SEP">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_OCT">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_NOV">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_DIC">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PRECIOS_KILO_BIOMASA">
+      <value value="&quot;[2 2 2]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PRECIO_LITRO_GAS">
+      <value value="25"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LITROS_POR_DISTANCIA">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LITROS_POR_HORA_PESCA">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUM_EMBARCACIONES_PUERTO_1">
+      <value value="300"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="REGION_PESCA_EMBARCACIONES_PUERTO_1">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="CAPTURABILIDAD_PUERTO_1">
+      <value value="0.05"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="CAPACIDAD_MAXIMA_PUERTO_1">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ESPECIES_PESCA_PUERTO_1">
+      <value value="&quot;[ 0 0 1 ]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="HORAS_MAXIMAS_EN_MAR_PUERTO_1">
+      <value value="4"/>
+      <value value="8"/>
+      <value value="12"/>
+      <value value="16"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="TAMANIO_TRIPULACION_PUERTO_1">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="HORAS_DESCANSAR_PUERTO_1" first="12" step="12" last="60"/>
+    <enumeratedValueSet variable="NUM_EMBARCACIONES_PUERTO_2">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="REGION_PESCA_EMBARCACIONES_PUERTO_2">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="CAPTURABILIDAD_PUERTO_2">
+      <value value="0.01"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="CAPACIDAD_MAXIMA_PUERTO_2">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ESPECIES_PESCA_PUERTO_2">
+      <value value="&quot;[1 1 1]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="HORAS_MAXIMAS_EN_MAR_PUERTO_2">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="TAMANIO_TRIPULACION_PUERTO_2">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="HORAS_DESCANSAR_PUERTO_2">
+      <value value="72"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUM_EMBARCACIONES_PUERTO_3">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="REGION_PESCA_EMBARCACIONES_PUERTO_3">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="CAPTURABILIDAD_PUERTO_3">
+      <value value="0.01"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="CAPACIDAD_MAXIMA_PUERTO_3">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ESPECIES_PESCA_PUERTO_3">
+      <value value="&quot;[1 1 1]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="HORAS_MAXIMAS_EN_MAR_PUERTO_3">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="TAMANIO_TRIPULACION_PUERTO_3">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="HORAS_DESCANSAR_PUERTO_3">
+      <value value="72"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="UMBRAL_INGRESO_MIN_PETROLEO">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SALARIO_MENSUAL_MINIMO_ACEPTABLE">
+      <value value="7000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MESES_PARA_COLAPSO_EMBARCACION">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PORCENTAJE_MAX_EMBARCACIONES_QUIEBRA">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MESES_PARA_COLAPSO_PETROLEO">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="UMBRAL_BIOMASA_SOSTENIBLE">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUMERO_MINIMO_TORTUGAS">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PRUEBA?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ANOS_PRUEBA">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="DETENER_SI_PIERDE?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MOSTRAR_MENSAJES?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="HIDROCARBURO_INICIAL">
+      <value value="10000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="TASA_DECLINACION_HIDROCARBURO">
+      <value value="0.001"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PRECIO_CRUDO">
+      <value value="8900"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MIN_PROB_OCURRENCIA_DERRAME">
+      <value value="0.004"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MAX_PROB_OCURRENCIA_DERRAME">
+      <value value="0.04"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PROB_EXTENSION_DERRAME">
+      <value value="0.36"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="TIEMPO_DERRAMADO">
+      <value value="60"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="COSTO_TRANSPORTE_POR_UNIDAD_DISTANCIA">
+      <value value="500"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VELOCIDAD_BUQUES">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="TASA_MORTALIDAD_DERRAME">
+      <value value="0.3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUM_PUERTOS">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LONG_TIERRA">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LONG_REGION_1">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LONG_REGION_2">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LONG_REGION_3">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="COLOREAR_POR">
+      <value value="&quot;biomasa, zonificacion y derrames&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="calibracion_pesca_01" repetitions="30" runMetricsEveryStep="false">
+    <setup>INICIALIZAR</setup>
+    <go>EJECUTAR</go>
+    <timeLimit steps="3652"/>
+    <metric>sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 0]</metric>
+    <metric>([sum distancias_recorridas_mes_puerto] of one-of puertos with [num_puerto = 0] *  longitud_celda) / NUMERO_EMBARCACIONES</metric>
+    <metric>[sum ganancias_mes_puerto] of one-of puertos with [num_puerto = 0]</metric>
+    <metric>[sum horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 0] / NUMERO_EMBARCACIONES</metric>
+    <metric>sum [gastos_gasolina_mes_puerto ] of one-of puertos with [num_puerto = 0] / NUMERO_EMBARCACIONES</metric>
+    <metric>sum [viajes_finalizados_mes_puerto] of puertos with [num_puerto = 0]</metric>
+    <metric>sum [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 0] / NUMERO_EMBARCACIONES</metric>
+    <metric>count embarcaciones with [ estado_economico = "viable" ]</metric>
+    <metric>count embarcaciones with [ estado_economico = "crisis" ]</metric>
+    <metric>count embarcaciones with [ estado_economico = "quiebra" ]</metric>
+    <metric>sum[item 0 biomasas] of patches</metric>
+    <metric>sum[item 1 biomasas] of patches</metric>
+    <metric>sum[item 2 biomasas] of patches</metric>
+    <metric>count tortugas</metric>
+    <metric>tiempo_pesca_sostenible</metric>
+    <metric>tiempo_hidrocarburo_sostenible</metric>
+    <metric>tiempo_biomasa_sostenible</metric>
+    <metric>tiempo_tortugas_sostenible</metric>
+    <metric>num_derrames</metric>
+    <metric>produccion_mes_hidrocarburo</metric>
+    <metric>produccion_total_hidrocarburo</metric>
+    <metric>ganancia_mes_hidrocarburo</metric>
+    <runMetricsCondition>member? ticks [ 31 60 91 121 152 182 213 244 274 305 335 366 396 424 455 485 516 546 577 608 638 669 699 730 761 789 820 850 881 911 942 973 1003 1034 1064 1095 1126 1154 1185 1215 1246 1276 1307 1338 1368 1399 1429 1460 1492 1521 1552 1582 1613 1643 1674 1705 1735 1766 1796 1827 1857 1885 1916 1946 1977 2007 2038 2069 2099 2130 2160 2191 2222 2250 2281 2311 2342 2372 2403 2434 2464 2495 2525 2556 2587 2615 2646 2676 2707 2737 2768 2799 2829 2860 2890 2921 2953 2982 3013 3043 3074 3104 3135 3166 3196 3227 3257 3288 3318 3346 3377 3407 3438 3468 3499 3530 3560 3591 3621 3652 ]</runMetricsCondition>
+    <enumeratedValueSet variable="RONDA">
+      <value value="&quot;NA&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUMERO_EMBARCACIONES">
+      <value value="300"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="REGION_DONDE_PESCAR">
+      <value value="&quot;Linea de costa: camarón&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUMERO_DE_PLATAFORMAS">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="REGION_DE_PLATAFORMAS">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="GASTO_EN_MANTENIMIENTO">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_TEMPORAL">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ANCHO_ZONA_PROTEGIDA">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LARGO_ZONA_PROTEGIDA">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SUBSIDIO_MENSUAL_GASOLINA">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="TIPO_DE_EMBARCACIONES">
+      <value value="&quot;pequeña escala (1 ton, 3 tripulantes)&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="RADIO_RESTRICCION_PLATAFORMAS">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Ks">
+      <value value="&quot;[1000 1000 1000]&quot;"/>
+      <value value="&quot;[2000 2000 2000]&quot;"/>
+      <value value="&quot;[3000 3000 3000]&quot;"/>
+      <value value="&quot;[4000 4000 4000]&quot;"/>
+      <value value="&quot;[5000 5000 5000]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VELOCIDAD">
+      <value value="1"/>
+      <value value="2"/>
+      <value value="5"/>
+      <value value="10"/>
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PRECIOS_KILO_BIOMASA">
+      <value value="&quot;[1 1 1]&quot;"/>
+      <value value="&quot;[2 2 2]&quot;"/>
+      <value value="&quot;[3 3 3]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="HORAS_MAXIMAS_EN_MAR_PUERTO_1">
+      <value value="4"/>
+      <value value="8"/>
+      <value value="12"/>
+      <value value="24"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="HORAS_DESCANSAR_PUERTO_1" first="12" step="12" last="36"/>
+  </experiment>
+  <experiment name="calibracion_pesca_02" repetitions="10" runMetricsEveryStep="false">
+    <setup>INICIALIZAR</setup>
+    <go>EJECUTAR</go>
+    <timeLimit steps="3652"/>
+    <metric>sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 0]</metric>
+    <metric>([sum distancias_recorridas_mes_puerto] of one-of puertos with [num_puerto = 0] *  longitud_celda) / NUMERO_EMBARCACIONES</metric>
+    <metric>[sum ganancias_mes_puerto] of one-of puertos with [num_puerto = 0]</metric>
+    <metric>[sum horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 0] / NUMERO_EMBARCACIONES</metric>
+    <metric>sum [gastos_gasolina_mes_puerto ] of one-of puertos with [num_puerto = 0] / NUMERO_EMBARCACIONES</metric>
+    <metric>sum [viajes_finalizados_mes_puerto] of puertos with [num_puerto = 0]</metric>
+    <metric>sum [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 0] / NUMERO_EMBARCACIONES</metric>
+    <metric>count embarcaciones with [ estado_economico = "viable" ]</metric>
+    <metric>count embarcaciones with [ estado_economico = "crisis" ]</metric>
+    <metric>count embarcaciones with [ estado_economico = "quiebra" ]</metric>
+    <metric>sum[item 0 biomasas] of patches</metric>
+    <metric>sum[item 1 biomasas] of patches</metric>
+    <metric>sum[item 2 biomasas] of patches</metric>
+    <metric>count tortugas</metric>
+    <metric>tiempo_pesca_sostenible</metric>
+    <metric>tiempo_hidrocarburo_sostenible</metric>
+    <metric>tiempo_biomasa_sostenible</metric>
+    <metric>tiempo_tortugas_sostenible</metric>
+    <metric>num_derrames</metric>
+    <metric>produccion_mes_hidrocarburo</metric>
+    <metric>produccion_total_hidrocarburo</metric>
+    <metric>ganancia_mes_hidrocarburo</metric>
+    <runMetricsCondition>member? ticks [ 0 31 60 91 121 152 182 213 244 274 305 335 366 396 424 455 485 516 546 577 608 638 669 699 730 761 789 820 850 881 911 942 973 1003 1034 1064 1095 1126 1154 1185 1215 1246 1276 1307 1338 1368 1399 1429 1460 1492 1521 1552 1582 1613 1643 1674 1705 1735 1766 1796 1827 1857 1885 1916 1946 1977 2007 2038 2069 2099 2130 2160 2191 2222 2250 2281 2311 2342 2372 2403 2434 2464 2495 2525 2556 2587 2615 2646 2676 2707 2737 2768 2799 2829 2860 2890 2921 2953 2982 3013 3043 3074 3104 3135 3166 3196 3227 3257 3288 3318 3346 3377 3407 3438 3468 3499 3530 3560 3591 3621 3652 ]</runMetricsCondition>
+    <enumeratedValueSet variable="RONDA">
+      <value value="&quot;NA&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUMERO_EMBARCACIONES">
+      <value value="300"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="REGION_DONDE_PESCAR">
+      <value value="&quot;Linea de costa: camarón&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUMERO_DE_PLATAFORMAS">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="REGION_DE_PLATAFORMAS">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="GASTO_EN_MANTENIMIENTO">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VEDA_TEMPORAL">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ANCHO_ZONA_PROTEGIDA">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LARGO_ZONA_PROTEGIDA">
+      <value value="15"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SUBSIDIO_MENSUAL_GASOLINA">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="TIPO_DE_EMBARCACIONES">
+      <value value="&quot;pequeña escala (1 ton, 3 tripulantes)&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="RADIO_RESTRICCION_PLATAFORMAS">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Ks">
+      <value value="&quot;[1000 1000 1000]&quot;"/>
+      <value value="&quot;[3000 3000 3000]&quot;"/>
+      <value value="&quot;[5000 5000 5000]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VELOCIDAD">
+      <value value="1"/>
+      <value value="5"/>
+      <value value="10"/>
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PRECIOS_KILO_BIOMASA">
+      <value value="&quot;[2 2 2]&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="HORAS_MAXIMAS_EN_MAR_PUERTO_1">
+      <value value="4"/>
+      <value value="8"/>
+      <value value="16"/>
+      <value value="24"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="HORAS_DESCANSAR_PUERTO_1" first="12" step="12" last="36"/>
+  </experiment>
+</experiments>
 @#$#@#$#@
 @#$#@#$#@
 default

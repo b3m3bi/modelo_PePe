@@ -24,7 +24,7 @@ The catch and oil prices are fixed.
 *** If applicable, how is space included in the model?
 Space is included implicitly, each patch represents a spatial unit and boats, turtles and biomass move in the space.
 *** What are the temporal and spatial resolutions and extents of the model?
-Each time step represents a day. The size of the virtual world is 36 \times 36 pixels where each individual patch represents a 10x10 km square, representing an area of approximate 129,600 km^2.
+Each time step represents a day. The size of the virtual world is 50 \times 50 pixels (with 3 extra pixels at the right of the word representing land) where each individual patch represents 1 km^2 representing a sea area of 2,500 km^2 which corresponds to an aproximate fishing area of a local comunity.
 ** Process overview and scheduling
 *** What entity does what, and in what order?
 Daily a boat has 24 hours to carry out 5 different activities: rest at port, plan next trip, move towards a destination, fish and land at port. Each activity costs time to the boat.

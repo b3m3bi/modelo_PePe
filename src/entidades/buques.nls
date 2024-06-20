@@ -39,8 +39,8 @@ to init_buques
 end
 
 to init_buque [_plataforma]
-  set shape "boat 3"
-  set color black
+  set shape "buque"
+  set size 0.9
   set indice_actual_ruta 0
   set tiempo_restante_iteracion 0
   set mi_plataforma _plataforma
@@ -89,12 +89,6 @@ to moverse_buque
 
     let tamanio_paso VELOCIDAD_BUQUES / longitud_celda
     let distancia_avanzada 0
-    
-    if tipo = "mar" and any? embarcaciones-here with [ estado != "moviendose" ] and random-float 1.0 < PROB_ACCIDENTE [
-      ask one-of embarcaciones-here with [ estado != "moviendose" ] [ set averidado? true ]
-      set num_accidentes num_accidentes + 1
-      set accidentes accidentes + 1
-    ]
 
     while [ distancia_avanzada < tamanio_paso ] [
       let siguiente_celda (item indice_actual_ruta ruta)
@@ -128,23 +122,21 @@ to cargando_buque
   set estado "moviendose"
 end
 
-to descargando_buque
-  set destino [patch-here] of mi_plataforma
-  
-  set produccion_total produccion_total + carga 
-  
-  let costos_transporte distancia_recorrida * COSTO_TRANSPORTE_POR_UNIDAD_DISTANCIA * longitud_celda
-  ;; TODO: calcular bien estos costos
-  let _ganancia (carga * PRECIO_CRUDO) - costos_transporte - (count plataformas) * GASTO_EN_MANTENIMIENTO * 1000
-  set ganancia_acumulada_petroleo ganancia_acumulada_petroleo + _ganancia
-  set ganancia_mensual_petroleo ganancia_mensual_petroleo + _ganancia
-  
+to descargando_buque 
+  ;; se descarga la carga que trae el buque
+  set produccion_dia_hidrocarburo produccion_dia_hidrocarburo + carga
+  set produccion_mes_hidrocarburo produccion_mes_hidrocarburo + carga
+  set produccion_total_hidrocarburo produccion_total_hidrocarburo + carga
   set carga 0
+  
+  ;; se registra la distancia recorrida
+  set distancia_recorrida_dia_hidrocarburo distancia_recorrida_dia_hidrocarburo + distancia_recorrida
+  
+  ;; se define nuevo destino e inicializar variables para viaje de regreso
+  set destino [patch-here] of mi_plataforma
   set ruta ruta_a_plataforma
   set indice_actual_ruta 0
   set tiempo_restante_iteracion tiempo_restante_iteracion - 1
   set estado "moviendose"
   set distancia_recorrida 0 
 end
-
-

@@ -21,13 +21,13 @@ globals [
 ;; (no necesariamente antes que las variables de la interfaz)
 to init_globales
   print "Inicializando globales..."
-  set fecha_inicio time:create "01-01"
+  set fecha_inicio time:create "2024-01-01 00:00:00.000"
   set fecha fecha_inicio
   set dias 0
   set ano 0
   set colores_puertos_embarcaciones [ pink violet blue ]
   set horas_iteracion 24
-  set longitud_celda 10
+  set longitud_celda 3
   print "OK"
 end
 
@@ -37,7 +37,9 @@ end
 
 ;; Actualiza la fecha de la simulación
 to actualizar_fecha
-  set fecha time:plus fecha 1 "days"
-  set dias dias + 1
-  if paso_un_ano [ set ano ano + 1 ]
+  set fecha time:plus fecha horas_iteracion "hours"
+  if time:get "hour" fecha = 0 [
+    set dias dias + 1
+  ]
+  if paso_un_ano? [ set ano ano + 1 ]
 end

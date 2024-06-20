@@ -1,8 +1,19 @@
 globals [
   perdio?                      ;; boolean: indica si el jugador superó los límites dados
   num_celdas_con_spp           ;; list (number): lista donde cada entrada representa el número de celdas que tienen a la especie i
-  mensaje_fin_juego            ;; string: mensaje que recibe el usuario cuando se detiene la simulación porque no alcanzó el objetivo
+  mensajes_juego               ;; list (string): lista con los mensajes que recibe el usuario cuando se alcanza un umbral del juego
+  memoria_mensajes             ;; list (boolean): indica si ya se envió o no antes el mensaje
   umbrales_biomasa_sostenible  ;; list (number): lista donde cada entrada representa el umbral de biomasa sostenible para la especie i
+
+  tiempo_pesca_sostenible         ;; number: número de dias que la industria pesquera se mantiene sostenible en la simulación
+  tiempo_hidrocarburo_sostenible  ;; number: número de días que la industria petrolera se mantiene sostenible en la simulación
+  tiempo_tortugas_sostenible      ;; number: número de días que la población de tortugas se mantiene sostenible en la simulación
+  tiempo_biomasa_sostenible       ;; number: número de días que las poblaciones de biomasa se mantienen sostenibles en la simulación
+  
+  biomasa_sostenible?             ;; boolean: indica si las poblacions de biomasa se mantienen sostenibles
+  pesca_sostenible?               ;; boolean: indica si la industria pesquera se mantiene sostenible
+  hidrocarburo_sostenible?        ;; boolean: indica si la industria petrolera se mantiene sostenible
+  tortugas_sostenible?            ;; boolean: indica si la población de tortugas se mantiene sostenible
   
 ]
 
@@ -18,69 +29,54 @@ to init_ronda
     ;; sector pesquero
 ;    set NUMERO_EMBARCACIONES 300
 ;    set REGION_DONDE_PESCAR "Region 2: escama"
-;    set TIPO_DE_EMBARCACIONES "pequeña escala (1 ton, 3 tripulantes)"
-;    set MAXIMA_JORNADA_DE_PESCA 12
     ;; sector petrolero
     set NUMERO_DE_PLATAFORMAS 10
     set REGION_DE_PLATAFORMAS 2
-    set RADIO_RESTRICCION_PLATAFORMAS 3
-    set SUBSIDIO_MENSUAL_GASOLINA 0
     set GASTO_EN_MANTENIMIENTO 0
     ;; sector conservación
-    set ANCHO_ZONA_PROTEGIDA 10
-    set LARGO_ZONA_PROTEGIDA 10
-    set VEDA_ENE_FEB false
-    set VEDA_MAR_ABR false
-    set VEDA_MAY_JUN false
-    set VEDA_JUL_AGO false
-    set VEDA_SEP_OCT false
-    set VEDA_NOV_DIC false
+    set ANCHO_ZONA_PROTEGIDA 15
+    set LARGO_ZONA_PROTEGIDA 15
+    set VEDA_TEMPORAL true
+    ;; políticas
+    set SUBSIDIO_MENSUAL_GASOLINA 0
+    set TIPO_DE_EMBARCACIONES "pequeña escala (1 ton, 3 tripulantes)"
+    set RADIO_RESTRICCION_PLATAFORMAS 3
   ]
     
   if RONDA = "Ronda 1 (sector petrolero)" [
     ;; sector pesquero
     set NUMERO_EMBARCACIONES 300
-    set REGION_DONDE_PESCAR "Region 2: escama"
-    set TIPO_DE_EMBARCACIONES "pequeña escala (1 ton, 3 tripulantes)"
-    set MAXIMA_JORNADA_DE_PESCA 12
+    set REGION_DONDE_PESCAR "Plataformas: escama"
     ;; sector petrolero
 ;    set NUMERO_DE_PLATAFORMAS 10
 ;    set REGION_DE_PLATAFORMAS 2
-;    set RADIO_RESTRICCION_PLATAFORMAS 3
-;    set SUBSIDIO_MENSUAL_GASOLINA 0
 ;    set GASTO_EN_MANTENIMIENTO 0
     ;; sector conservación
-    set ANCHO_ZONA_PROTEGIDA 10
-    set LARGO_ZONA_PROTEGIDA 10
-    set VEDA_ENE_FEB false
-    set VEDA_MAR_ABR false
-    set VEDA_MAY_JUN false
-    set VEDA_JUL_AGO false
-    set VEDA_SEP_OCT false
-    set VEDA_NOV_DIC false
+    set ANCHO_ZONA_PROTEGIDA 15
+    set LARGO_ZONA_PROTEGIDA 15
+    set VEDA_TEMPORAL true
+    ;; políticas
+    set SUBSIDIO_MENSUAL_GASOLINA 0
+    set TIPO_DE_EMBARCACIONES "pequeña escala (1 ton, 3 tripulantes)"
+    set RADIO_RESTRICCION_PLATAFORMAS 3
   ]
     
-  if RONDA = "Ronda 1 (sector conservacion)" [
+  if RONDA = "Ronda 1 (sector conservación)" [
     ;; sector pesquero
     set NUMERO_EMBARCACIONES 300
-    set REGION_DONDE_PESCAR "Region 2: escama"
-    set TIPO_DE_EMBARCACIONES "pequeña escala (1 ton, 3 tripulantes)"
-    set MAXIMA_JORNADA_DE_PESCA 12
+    set REGION_DONDE_PESCAR "Plataformas: escama"
     ;; sector petrolero
     set NUMERO_DE_PLATAFORMAS 10
     set REGION_DE_PLATAFORMAS 2
-    set RADIO_RESTRICCION_PLATAFORMAS 3
-    set SUBSIDIO_MENSUAL_GASOLINA 0
     set GASTO_EN_MANTENIMIENTO 0
     ;; sector conservación
-;    set ANCHO_ZONA_PROTEGIDA 10
-;    set LARGO_ZONA_PROTEGIDA 10
-;    set VEDA_ENE_FEB false
-;    set VEDA_MAR_ABR false
-;    set VEDA_MAY_JUN false
-;    set VEDA_JUL_AGO false
-;    set VEDA_SEP_OCT false
-;    set VEDA_NOV_DIC false
+;    set ANCHO_ZONA_PROTEGIDA 15
+;    set LARGO_ZONA_PROTEGIDA 15
+;    set VEDA_TEMPORAL true
+    ;; políticas
+    set SUBSIDIO_MENSUAL_GASOLINA 0
+    set TIPO_DE_EMBARCACIONES "pequeña escala (1 ton, 3 tripulantes)"
+    set RADIO_RESTRICCION_PLATAFORMAS 3
   ]
 end
 
@@ -93,15 +89,15 @@ to init_variables_jugables
   set NUM_EMBARCACIONES_PUERTO_1 NUMERO_EMBARCACIONES
   
   (ifelse
-    REGION_DONDE_PESCAR = "Region 1: camarón" [
+    REGION_DONDE_PESCAR = "Linea de costa: camarón" [
       set REGION_PESCA_EMBARCACIONES_PUERTO_1  1
       set ESPECIES_PESCA_PUERTO_1 "[ 1 0 0 ]"
     ]
-    REGION_DONDE_PESCAR = "Region 2: escama" [
+    REGION_DONDE_PESCAR = "Plataformas: escama" [
       set REGION_PESCA_EMBARCACIONES_PUERTO_1  2
       set ESPECIES_PESCA_PUERTO_1 "[ 0 1 0 ]"
     ]
-    REGION_DONDE_PESCAR = "Region 3: huachinango" [
+    REGION_DONDE_PESCAR = "Profundo: huachinango" [
       set REGION_PESCA_EMBARCACIONES_PUERTO_1  3
       set ESPECIES_PESCA_PUERTO_1 "[ 0 0 1 ]"
     ])
@@ -117,8 +113,23 @@ to init_variables_jugables
       set CAPTURABILIDAD_PUERTO_1 0.05
       set TAMANIO_TRIPULACION_PUERTO_1 5
     ])
-    
-  set HORAS_MAXIMAS_EN_MAR_PUERTO_1 MAXIMA_JORNADA_DE_PESCA  
+  
+  set VEDA_ENE false
+  set VEDA_FEB false
+  set VEDA_MAR false
+  set VEDA_ABR false
+  set VEDA_MAY false
+  set VEDA_JUN false
+  set VEDA_JUL false
+  set VEDA_AGO false
+  set VEDA_SEP false
+  set VEDA_OCT false
+  set VEDA_NOV false
+  set VEDA_DIC false
+  if VEDA_TEMPORAL [
+    set VEDA_JUN true
+    set VEDA_JUL true
+  ]
 end
 
 ;; TODO: crear un procedimiento init_parametros que inicialice las variables
@@ -127,10 +138,21 @@ end
 to init_umbrales_juego
   print "Inicializando umbrales del juego..."
   set perdio? false
-  set mensaje_fin_juego ""
+  set mensajes_juego []
+  set memoria_mensajes n-values 4 [false]
   
   set num_celdas_con_spp []
   set umbrales_biomasa_sostenible []
+  
+  set tiempo_pesca_sostenible 0
+  set tiempo_hidrocarburo_sostenible 0
+  set tiempo_tortugas_sostenible 0
+  set tiempo_biomasa_sostenible 0
+  
+  set biomasa_sostenible? true
+  set pesca_sostenible? true
+  set hidrocarburo_sostenible? true
+  set tortugas_sostenible? true
   
   ;; se calcula cuantas celdas ocupa cada especie para a partir de ahí determinar
   ;; la cantidad de biomasa que tiene cada una y sus umbrales
@@ -145,27 +167,69 @@ to init_umbrales_juego
   print "OK"
 end
 
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;;;;;;;;;;;; PROCEDIMIENTOS EJECUTAR ;;;;;;;;;;;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 to revisar_umbrales_juego
-  foreach range _num_especies [
+  
+  set mensajes_juego []
+  ;; sostenibilidad especies pescadas
+   foreach range _num_especies [
     i ->
     if sum[item i biomasas] of patches < (item i umbrales_biomasa_sostenible)  [ 
       set perdio? true 
-      set mensaje_fin_juego (word "Colapso biológico: se sobreprescó a la especie " i ". La población se redujo al " UMBRAL_BIOMASA_SOSTENIBLE "%.")
-    ] 
+      set biomasa_sostenible? false
+      if not (item 0 memoria_mensajes) [
+        set memoria_mensajes replace-item 0 memoria_mensajes true 
+        let mensaje_juego (word "Colapso biológico: se sobreprescó a la especie " i ". La población se redujo al " UMBRAL_BIOMASA_SOSTENIBLE "%.")
+        set mensajes_juego lput mensaje_juego mensajes_juego
+      ]
+    ]  
   ]
-  
-  let prop_embarcaciones_en_quiebra count embarcaciones with [ estado_economico = "quiebra" ] / count embarcaciones
-  if prop_embarcaciones_en_quiebra >= (PORCENTAJE_MAXIMO_EMBARCACIONES_QUIEBRA / 100) [
+    
+  ;; sostenibilidad tortugas
+  if any? tortugas and count tortugas < NUMERO_MINIMO_TORTUGAS [
     set perdio? true
-    set mensaje_fin_juego (word "Colapso de la industria pesquera: el " round (prop_embarcaciones_en_quiebra * 100) "% de las embarcaciones quebraron economicamente.")
+    set tortugas_sostenible? false
+    if not (item 1 memoria_mensajes) [
+      set memoria_mensajes replace-item 1 memoria_mensajes true
+      let mensaje_juego (word "Colapso biológico: quedan menos de " NUMERO_MINIMO_TORTUGAS " tortugas. La población está en un estado crítico.")
+      set mensajes_juego lput mensaje_juego mensajes_juego
+    ]
   ]
   
-  if any? plataformas and ganancia_acumulada_petroleo < 0 [
-    set perdio? true 
-    set mensaje_fin_juego (word "Colapso de la industria petrolera. La producción petrolera ya no es rentable." )
+  ;; sostenibilidad embarcaciones
+  if any? embarcaciones [
+    let prop_embarcaciones_en_quiebra count embarcaciones with [ estado_economico = "quiebra" ] / count embarcaciones
+    if prop_embarcaciones_en_quiebra > (PORCENTAJE_MAX_EMBARCACIONES_QUIEBRA / 100) [
+      set perdio? true
+      set pesca_sostenible? false
+      if not (item 2 memoria_mensajes) [
+        set memoria_mensajes replace-item 2 memoria_mensajes true 
+        let mensaje_juego (word "Colapso de la industria pesquera: más del " PORCENTAJE_MAX_EMBARCACIONES_QUIEBRA "% de las embarcaciones quebraron economicamente.")
+        set mensajes_juego lput mensaje_juego mensajes_juego
+      ]
+    ]
+  ]
+  ;; sostenibilidad petroleo
+  if any? plataformas and estado_economico_hidrocarburo != "viable"  [
+    set perdio? true
+    set hidrocarburo_sostenible? false
+    if not (item 3 memoria_mensajes) [
+      set memoria_mensajes replace-item 3 memoria_mensajes true 
+      let mensaje_juego (word "Colapso de la industria petrolera. La producción petrolera ya no es rentable." )
+      set mensajes_juego lput mensaje_juego mensajes_juego
+    ]
   ]
 end
+
+
+to actualizar_tiempos_sostenibilidad
+  if any? embarcaciones and pesca_sostenible? [ set tiempo_pesca_sostenible tiempo_pesca_sostenible + 1 ]
+  if any? plataformas and hidrocarburo_sostenible? [ set tiempo_hidrocarburo_sostenible tiempo_hidrocarburo_sostenible + 1 ]
+  if biomasa_sostenible? [ set tiempo_biomasa_sostenible tiempo_biomasa_sostenible + 1 ]
+  if tortugas_sostenible? [ set tiempo_tortugas_sostenible tiempo_tortugas_sostenible + 1 ]
+end
+

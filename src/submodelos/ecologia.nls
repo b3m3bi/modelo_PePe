@@ -67,7 +67,9 @@ to init_ecologia
   
   ;; se crea la biomasa de cada especie en cada celda
   ask celdas_tierra [ set biomasas n-values _num_especies [0] ]
-  ask celdas_mar [ set biomasas sublist (map [[b h] -> b * h] (read-from-string BIOMASAS_INICIALES) habitats) 0 _num_especies ]
+  let _biomasas_iniciales (read-from-string BIOMASAS_INICIALES)
+  if BIOMASA_INICIAL_K? [ set _biomasas_iniciales _Ks ]
+  ask celdas_mar [ set biomasas sublist (map [[b h] -> b * h] _biomasas_iniciales habitats) 0 _num_especies ]
   print "OK"
 end
 

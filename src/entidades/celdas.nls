@@ -6,7 +6,6 @@ patches-own [
   num_region               ;; number: identificador del la región de pesca a la que pertence la celda
   
   ;; petroleo
-  accidentes               ;; number: número de accidentes que han pasado en esta celda
   hidrocarburo             ;; number: cantidad de hidrocarburo disponible en la celda
   derramado?               ;; boolean: indica si una celda está derramada con hidrocarburo o no
   tiempo_desde_derrame     ;; number: tiempo que ha pasado desde que empecé a estar derramado
@@ -23,6 +22,7 @@ patches-own [
   ;; zonificacion
   zonificacion             ;; string: tipo de zonificación que se le asigna a una celda: "libre", "restriccion", "protegido", "NA" 
   ya_me_picaste            ;; boolean: variable para ayudar a la interactividad al seleccionar areas
+  
 ]
 
 to init_celdas
@@ -31,7 +31,6 @@ to init_celdas
     set tipo "NA"
     set num_region -9999
     
-    set accidentes 0
     set hidrocarburo 0
     set derramado? false
     set tiempo_desde_derrame -9999

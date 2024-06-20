@@ -1,16 +1,29 @@
 globals [
-  ganancia_acumulada_petroleo ;; number: registra la ganancia todal del petroleo acumulada en el tiempo 
-  produccion_total
-  num_derrames
-  ganancia_mensual_petroleo
+  num_derrames                         ;; number: registra el número de derrames que han ocurrido durante la simulación
+  produccion_dia_hidrocarburo          ;; number: registra la producción diaria de hidrocarburo que llega a los puertos
+  distancia_recorrida_dia_hidrocarburo ;; number: registra la distancia que recorren en conjunto los buques que llegan al puerto en un día
+  ganancia_dia_hidrocarburo            ;; number: registra la ganancia diaria del petroelo  
+  ganancia_mes_hidrocarburo            ;; number: registra la ganancia mensual del petroleo
+  produccion_mes_hidrocarburo          ;; number: registra la producción mensual de petroleo
+  produccion_total_hidrocarburo        ;; number: registra la producción total de hidrocarburo durante la simulación
+  _subsidio_mensual_gasolina           ;; number: clon de la variable SUBSIDIO_MENSUAL_GASOLINA para evitar cambios durante la simulación
+  _gasto_en_mantenimiento              ;; number: clon de la variable GASTO_EN_MANTENIMIENTO para evitar cambios durante la simulación 
+  meses_crisis_hidrocarburo            ;; number: número de meses que la industria petrolera lleva en crisis
+  estado_economico_hidrocarburo        ;; string: estado económico de la industrua petrolera ("viable" "crisis" "colapso")
 ]
 
 to init_hidrocarburo
   print "Inicializando hidrocarburo..."
-  set ganancia_acumulada_petroleo 0
-  set produccion_total 0
+  
   set num_derrames 0
-  set ganancia_mensual_petroleo 0
+  set _subsidio_mensual_gasolina SUBSIDIO_MENSUAL_GASOLINA
+  set _gasto_en_mantenimiento GASTO_EN_MANTENIMIENTO
+  set produccion_total_hidrocarburo 0
+  set meses_crisis_hidrocarburo 0
+  set estado_economico_hidrocarburo "viable"
+  
+  reset_registros_diarios_hidrocarburo
+  reset_registros_mensuales_hidrocarburo
   
   ;; se llenan de hidrocarburo las celdas de mar
   ask celdas_mar [
@@ -19,45 +32,23 @@ to init_hidrocarburo
   print "OK"
 end
 
-to COLOCAR_PLATAFORMAS
-  ifelse mouse-down? [
-    ask patch mouse-xcor mouse-ycor [
-      if not ya_me_picaste [
-        set ya_me_picaste true
-        ;; supuesto: solo se puede poner una plataforma por pixel
-        ifelse tipo = "mar" [
-          ifelse not any? plataformas-here [
-            instalar_plataforma
-          ][
-            user-message "Aquí ya hay una plataforma. Busca otro lugar para colocar una nueva."
-          ]
-        ][
-          user-message "No se pueden colocar plataformas en la tierra."
-        ]
-      ]
-    ]
-    colorear_celdas
-    display
-;    actualizar_zonificacion
-    actualizar_transitables_embarcaciones
-    ask embarcaciones [ actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados ]
-  ]
-  [
-    ask patches [ set ya_me_picaste false ]
-  ]
+to reset_registros_diarios_hidrocarburo
+  set produccion_dia_hidrocarburo 0
+  set distancia_recorrida_dia_hidrocarburo 0
+  set ganancia_dia_hidrocarburo 0
+end
+
+to reset_registros_mensuales_hidrocarburo
+  set ganancia_mes_hidrocarburo 0
+  set produccion_mes_hidrocarburo 0
 end
 
 to subsidiar_gasolina
   ask embarcaciones [
-    set saldo_subsidio_gasolina SUBSIDIO_MENSUAL_GASOLINA
-    set ganancia_acumulada_petroleo ganancia_acumulada_petroleo - SUBSIDIO_MENSUAL_GASOLINA
+    set saldo_subsidio_gasolina _subsidio_mensual_gasolina
+    set ganancia_mes_hidrocarburo ganancia_mes_hidrocarburo - _subsidio_mensual_gasolina
   ]
 end
-
-to reset_registros_mensuales_petroleo
-  set ganancia_mensual_petroleo 0
-end
-
 
 to iniciar_derrame [ x y ]
   ask patch x y [
@@ -68,7 +59,7 @@ end
 
 to dinamica_derrame
   
-  let prob_ocurrencia_derrame GASTO_EN_MANTENIMIENTO * ( - (MAX_PROB_OCURRENCIA_DERRAME - MIN_PROB_OCURRENCIA_DERRAME) / 5) + MAX_PROB_OCURRENCIA_DERRAME
+  let prob_ocurrencia_derrame _gasto_en_mantenimiento * ( - (MAX_PROB_OCURRENCIA_DERRAME - MIN_PROB_OCURRENCIA_DERRAME) / 5) + MAX_PROB_OCURRENCIA_DERRAME
   if random-float 1.0 < prob_ocurrencia_derrame and any? plataformas [
     let origen [patch-here] of one-of plataformas
     iniciar_derrame [pxcor] of origen [pycor] of origen
@@ -89,7 +80,7 @@ to extender_derrame
     ]
   ]
   ask celdas_derramado [
-    if random-float 1.0 < TASA_MORTALIDAD_DERRAME [
+    if random-float 1.0 < MORTALIDAD_TORTUGAS_DERRAME [
       ask tortugas-here [ die ]
     ]
     set tiempo_desde_derrame tiempo_desde_derrame + 1
@@ -99,3 +90,18 @@ to extender_derrame
     ]
   ]
 end
+
+to calcular_balance_hidrocarburo
+  let costos_transporte distancia_recorrida_dia_hidrocarburo * COSTO_TRANSPORTE_POR_UNIDAD_DISTANCIA * longitud_celda
+  let costos_mantenimiento (count plataformas) * _gasto_en_mantenimiento * 1000
+  let ganancia_produccion (produccion_dia_hidrocarburo * PRECIO_CRUDO)
+  set ganancia_dia_hidrocarburo ganancia_produccion - costos_transporte - costos_mantenimiento
+  set ganancia_mes_hidrocarburo ganancia_mes_hidrocarburo + ganancia_dia_hidrocarburo
+end
+
+to actualizar_estado_economico_hidrocarburo
+  ifelse ganancia_mes_hidrocarburo <= 0 
+  [ set estado_economico_hidrocarburo "colapso"]
+  [ set estado_economico_hidrocarburo "viable"]
+end
+

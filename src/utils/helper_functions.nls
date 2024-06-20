@@ -34,18 +34,16 @@ to-report vecindad_von_neumann [n incluir_centro?]
   [ report remove [0 0] vecindad ]
 end
 
-to-report paso_un_dia
+to-report paso_un_dia?
   report (ticks * horas_iteracion) mod 24  = 0
 end
 
-to-report paso_un_ano 
-  report (time:get "dayofyear" fecha = 1)
-;  (ticks != 0) and (dias mod 360 = 0)
+to-report paso_un_ano? 
+  report (time:get "dayofyear" fecha = 1 and time:get "hour" fecha = 0)
 end
 
-to-report paso_un_mes
-  report (time:get "day" fecha = 1)
-;  report (ticks != 0) and (dias mod 30 = 0)
+to-report paso_un_mes?
+  report (time:get "day" fecha = 1 and time:get "hour" fecha = 0)
 end
 
 to-report obtener_indice_max [ lista ]

@@ -1,35 +1,56 @@
 breed [ tortugas tortuga ]
 
+tortugas-own [
+  estado                       ;; string: estado en el que están las torguas: "migracion" "anidamiento" "alimentacion"
+  tiempo_llegue_alimentacion   ;; number: días desde que la tortuga llegó a la zona de alimentación (buffer antes de que actue la mortalidad por sobrepoblación)
+]
+
+patches-own [
+  vecinos_derecha
+  vecinos_izquierda
+]
+
 to init_tortugas
   print "Inicializando tortugas..."
   ;; se crea el hábitat de las tortugas
-  let inicio 10
-  let b inicio / (max-pxcor - inicio)
-  let m 1 / ( max-pxcor - inicio)
+;  let inicio 10
+;  let b inicio / (max-pxcor - inicio)
+;  let m 1 / ( max-pxcor - inicio)
+;  ask celdas_mar [
+;    let ruido random-normal 0 0.5
+;    set cap_carga (((pxcor * m ) - b) * MAX_CAPACIDAD_CARGA_TORTUGAS) + ruido
+;    if cap_carga < 0 [ set cap_carga 0 ]
+;    if cap_carga > MAX_CAPACIDAD_CARGA_TORTUGAS [ set cap_carga MAX_CAPACIDAD_CARGA_TORTUGAS ]
+;  ]
   ask celdas_mar [
-    let ruido random-normal 0 0.5
-    set cap_carga (((pxcor * m ) - b) * MAX_CAPACIDAD_CARGA_TORTUGAS) + ruido
-    if cap_carga < 0 [ set cap_carga 0 ]
-    if cap_carga > MAX_CAPACIDAD_CARGA_TORTUGAS [ set cap_carga MAX_CAPACIDAD_CARGA_TORTUGAS ]
+    set cap_carga MAX_CAPACIDAD_CARGA_TORTUGAS
+    set vecinos_derecha (patch-set (patch-at-heading-and-distance 45 1) (patch-at-heading-and-distance 90 1) (patch-at-heading-and-distance 135 1)) with [ tipo = "mar" ]
+    set vecinos_izquierda (patch-set (patch-at-heading-and-distance -45 1) (patch-at-heading-and-distance -90 1) (patch-at-heading-and-distance -135 1)) with [ tipo = "mar" ]
   ]
   
   ;; se crean las tortugas
   create-tortugas TAMANIO_POB_INICIAL_TORTUGAS [
     set shape "turtle"
     set color brown + 1
-;    set shape "crab"
-;    set color orange
-;    set shape "fish"
-;    set color red
     set size 0.5
-    move-to one-of patches with [ cap_carga >= 1 ]
+;    move-to one-of patches with [ cap_carga >= 1 ]
+    move-to one-of patches with [ num_region = 3 ]
+    set estado "alimentacion"
+    set tiempo_llegue_alimentacion 60
   ]
   
   print "OK"
 end
 
 to dinamica_tortugas
-  ask tortugas [ moverse_tortugas ]
+  if time:get "month" fecha = 5 [
+    ask tortugas [ set estado "migracion ida" ]
+  ]
+  if time:get "month" fecha = 10 [
+    ask tortugas [ set estado "migracion regreso" ]
+  ]
+  
+  ask tortugas [ moverse_tortuga_2]
   if (ticks mod 365 = DIA_REPRODUCCION_TORTUGAS) [ reproducirse_tortugas ]
   mortalidad_sobrepoblacion
 end
@@ -46,9 +67,22 @@ to reproducirse_tortugas
 end
 
 to mortalidad_sobrepoblacion
-  ask patches [
-    if count tortugas-here > cap_carga [
-      ask n-of (count tortugas-here - cap_carga) tortugas-here [ die ]
+  let tiempo_buffer 60
+  ask patches with [ num_region = 3 ][
+    if count tortugas-here with [tiempo_llegue_alimentacion > tiempo_buffer] > cap_carga [
+      ask n-of (count tortugas-here with [tiempo_llegue_alimentacion > tiempo_buffer] - cap_carga) tortugas-here with [tiempo_llegue_alimentacion > tiempo_buffer] [ die ]
     ]
   ]
+end
+
+to moverse_tortuga_2 
+  if  estado = "migracion ida" and num_region = 1 [ set estado "reproduccion" ]
+  if  estado = "migracion regreso" and num_region = 3 [ set estado "alimentacion" set tiempo_llegue_alimentacion 0 ]
+  
+  if estado = "alimentacion" [ face one-of neighbors with [ num_region = 3 ] set tiempo_llegue_alimentacion tiempo_llegue_alimentacion + 1 ]
+  if estado = "reproduccion" [ face one-of neighbors with [ num_region = 1 ]]
+  if estado = "migracion ida"[ face one-of vecinos_derecha ]
+  if estado = "migracion regreso" [ face one-of vecinos_izquierda ]
+  jump 1
+    
 end

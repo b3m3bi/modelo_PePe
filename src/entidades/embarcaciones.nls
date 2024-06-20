@@ -30,6 +30,7 @@ embarcaciones-own [
   capturabilidad                   ;; number: porcentaje de la biomasa disponible en una celda que pesca una embarcación cuando despliega sus artes de pesca
   capacidad_maxima                 ;; number: capacidad de carga de biomasa máxima que tiene una embarcación
   horas_maximas_en_mar             ;; number: número máximo de horas que una embarcación pasa en el mar
+  horas_descansar                  ;; number: número de horas que una embarcación descansa en el puerto
   ganancia_mensual                 ;; number: registra la ganancia mensual que genera la embarcación
   salario_mensual_tripulacion      ;; number: registra el salario mensual que recibe la tripulación 
   tamanio_tripulacion              ;; number: tamaño promedio de la tripulación de la embarcación
@@ -39,6 +40,8 @@ embarcaciones-own [
   averidado?
   inactivo_por_veda?               ;; boolean: indica si una embarcación inactiva por respetar una veda
   especies_pescadas                ;; list (number): indica que se pesca (1) o no (0) a la especie en el índice
+  
+  tortugas_matadas
 ]
 
 globals [
@@ -50,7 +53,6 @@ to init_embarcacion [_puerto _reg_pesca]
   set region_pesca _reg_pesca
   set tiempo_restante_iteracion horas_iteracion
   set estado "descansando"
-  set tiempo_descansado HORAS_DESCANSAR
   set tipo_planeacion ""
   set destino nobody
   set posibles_sitios_pesca celdas_libre with [num_region = [region_pesca] of myself]
@@ -78,6 +80,7 @@ to init_embarcacion [_puerto _reg_pesca]
       set especies_pescadas read-from-string ESPECIES_PESCA_PUERTO_1
       set horas_maximas_en_mar HORAS_MAXIMAS_EN_MAR_PUERTO_1
       set tamanio_tripulacion TAMANIO_TRIPULACION_PUERTO_1
+      set horas_descansar HORAS_DESCANSAR_PUERTO_1
     ]
     [num_puerto] of mi_puerto = 1 [
       set capturabilidad CAPTURABILIDAD_PUERTO_2
@@ -85,6 +88,7 @@ to init_embarcacion [_puerto _reg_pesca]
       set especies_pescadas read-from-string ESPECIES_PESCA_PUERTO_2
       set horas_maximas_en_mar HORAS_MAXIMAS_EN_MAR_PUERTO_2
       set tamanio_tripulacion TAMANIO_TRIPULACION_PUERTO_2
+      set horas_descansar HORAS_DESCANSAR_PUERTO_2
     ]
     [num_puerto] of mi_puerto = 2 [
       set capturabilidad CAPTURABILIDAD_PUERTO_3
@@ -92,6 +96,7 @@ to init_embarcacion [_puerto _reg_pesca]
       set especies_pescadas read-from-string ESPECIES_PESCA_PUERTO_3
       set horas_maximas_en_mar HORAS_MAXIMAS_EN_MAR_PUERTO_3
       set tamanio_tripulacion TAMANIO_TRIPULACION_PUERTO_3
+      set horas_descansar HORAS_DESCANSAR_PUERTO_3
     ])
   set ganancia_mensual 0
   set salario_mensual_tripulacion 7000
@@ -100,8 +105,10 @@ to init_embarcacion [_puerto _reg_pesca]
   set meses_crisis 0
   set averidado? false
   set inactivo_por_veda? false
+  set tiempo_descansado random horas_descansar
   
-  set shape "barco viable" 
+  set shape "barco1"
+  set size 1.1 
   set color item ([num_puerto] of mi_puerto) colores_puertos_embarcaciones
   move-to mi_puerto 
 end
@@ -110,6 +117,7 @@ to init_embarcaciones
   print "Inicializando embarcaciones..."
   let nums_embarcaciones (list NUM_EMBARCACIONES_PUERTO_1 NUM_EMBARCACIONES_PUERTO_2 NUM_EMBARCACIONES_PUERTO_3)
   let regs_pesca (list REGION_PESCA_EMBARCACIONES_PUERTO_1 REGION_PESCA_EMBARCACIONES_PUERTO_2 REGION_PESCA_EMBARCACIONES_PUERTO_3) 
+  show "Entrarndo al foreach..."
   foreach (range NUM_PUERTOS) [
     i -> 
     ask puertos with [num_puerto = i] [
@@ -118,14 +126,16 @@ to init_embarcaciones
       ]
     ]
   ]
-  
-  ;; se crea la red de amistades
-  ask embarcaciones [
-    let embarcaciones_mi_puerto embarcaciones with [mi_puerto = [mi_puerto] of myself]
-    ifelse count embarcaciones_mi_puerto > NUM_AMIGOS [
-      create-amistades-to (n-of NUM_AMIGOS other embarcaciones_mi_puerto) [ hide-link ]
-    ][
-      print (word "Advertencia: No hay suficientes embarcaciones en el puerto " [num_puerto] of mi_puerto " para formar NUM_AMIGOS = " NUM_AMIGOS " amistades. No se creará ninguna amistad para las embarcaciones de este puerto." )
+  show "Haciendo amistades..."
+  foreach sort puertos [
+    p ->
+    let embarcaciones_de_puerto embarcaciones with [mi_puerto = p]
+    ask embarcaciones_de_puerto [
+      ifelse count embarcaciones_de_puerto > NUM_AMIGOS [
+        create-amistades-to (n-of NUM_AMIGOS other embarcaciones_de_puerto) [ hide-link ]
+      ][
+        print (word "Advertencia: No hay suficientes embarcaciones en el puerto " [num_puerto] of mi_puerto " para formar NUM_AMIGOS = " NUM_AMIGOS " amistades. No se creará ninguna amistad para las embarcaciones de este puerto." )
+      ]
     ]
   ]
   set precios_biomasa read-from-string PRECIOS_KILO_BIOMASA
@@ -159,14 +169,14 @@ end
 to descansar
   ifelse hay_veda [ set inactivo_por_veda? true ][ set inactivo_por_veda? false ]
   ifelse not inactivo_por_veda? [
-    ifelse tiempo_descansado < HORAS_DESCANSAR  [
+    ifelse tiempo_descansado < horas_descansar  [
       ;; falta descansar... se descansa una unidad de tiempo
       set tiempo_descansado tiempo_descansado + 1
       set tiempo_restante_iteracion tiempo_restante_iteracion - 1
     ][
       ;; ya descansé suficiente... planeo mi viaje
       set estado "planeando"
-    set tipo_planeacion "inicio"
+      set tipo_planeacion "inicio"
     ]
   ][
     set tiempo_restante_iteracion tiempo_restante_iteracion - 1
@@ -208,15 +218,20 @@ end
 
 to-report seleccionar_sitio_pesca
   (ifelse
-    SELECCION_SITIO_PESCA = "EEI"       [ report seleccionar_sitio_EEI ]
-    SELECCION_SITIO_PESCA = "aleatorio" [ report seleccionar_sitio_aleatorio ]
-  )
+    SELECCION_SITIO_PESCA = "EEI en radio" or SELECCION_SITIO_PESCA = "EEI en region" [ report seleccionar_sitio_EEI ]
+    SELECCION_SITIO_PESCA = "aleatorio" [ report seleccionar_sitio_aleatorio ])
 end
 
 to-report seleccionar_sitio_EEI
   ;; se actoan los sitios pesca a solo los vecinos en un radio del mejor sitio
-  let _posibles_sitios_pesca [([posibles_sitios_pesca] of myself) at-points (vecindad_moore RADIO_EXPLORAR true)] of mejor_sitio
-;  let _posibles_sitios_pesca posibles_sitios_pesca
+  let _posibles_sitios_pesca nobody
+  if SELECCION_SITIO_PESCA = "EEI en radio" [
+    set _posibles_sitios_pesca [([posibles_sitios_pesca] of myself) at-points (vecindad_moore RADIO_EXPLORAR true)] of mejor_sitio
+  ]
+  if SELECCION_SITIO_PESCA = "EEI en region" [
+    set _posibles_sitios_pesca posibles_sitios_pesca
+  ]
+;  let _posibles_sitios_pesca [vecinos_pesca_region] of mejor_sitio
   
   ifelse random-float 1.0 < EPSILON [
     ;; explorar
@@ -258,7 +273,8 @@ to moverse
     let tamanio_paso VELOCIDAD / longitud_celda
     let distancia_avanzada 0
 
-    while [ distancia_avanzada < tamanio_paso ] [
+    let llegue? false
+    while [ distancia_avanzada < tamanio_paso and not llegue? ] [
       let siguiente_celda (item indice_actual_ruta ruta)
       face siguiente_celda
       let distancia_avanzo min (list (tamanio_paso - distancia_avanzada) (distance siguiente_celda))
@@ -269,19 +285,11 @@ to moverse
 
       ;; reviso si ya llegué al centro o no de la siguiente celda
       if distance siguiente_celda = 0 [
-        ;; si ya llegué cambio de indice y registro la distancia recorrida
+        ;; si ya llegué cambio de indice 
         set indice_actual_ruta indice_actual_ruta + 1
-        ; visualización
-;        if VISUALIZAR_PROCESOS_PESCADOR? [
-;          if not member? patch-here sitios_visitados [
-;            set pcolor yellow
-;            display
-;          ]
-;        ]
-;        ;; registro que pasó un pescador
-;        set contador_presencia contador_presencia + 1
+        
         ;; puede que llegue al destino y me hayan sobrado pasos, por lo que me detengo
-        if patch-here = destino [ stop ]
+        if patch-here = destino [ set llegue? true ]
       ]
     ]
     set horas_en_mar horas_en_mar + 1
@@ -307,6 +315,7 @@ to pescar
   ;; mortalidad tortugas
   if any? tortugas-here and random-float 1.0 < PROB_MORTALIDAD_TORTUGA_POR_PESCA [
     ask one-of tortugas-here [ die ]
+    set tortugas_matadas tortugas_matadas + 1
   ]
 
   set capturas_viaje lput capturas_sitio capturas_viaje
@@ -326,7 +335,7 @@ to pescar
 ;  ]
 
   ;; decido qué pasa después
-  ifelse obtener_captura_total_viaje >= CAPACIDAD_MAXIMA [
+  ifelse obtener_captura_total_viaje >= CAPACIDAD_MAXIMA  [
     ;; ya se llenó el barco...
     ;; regreso el extra considerando solo la proporción de la última captura
     let cantidad_regresar obtener_captura_total_viaje - CAPACIDAD_MAXIMA
@@ -426,7 +435,7 @@ end
   
 to registrar_viaje
   ;; se registra en las listas de viajes del dia
-  set viajes_finalizados_dia viajes_finalizados_dia + 1 
+  set viajes_finalizados viajes_finalizados + 1 
   let _captura obtener_captura_total_viaje 
   let _ganancia ganancia
   let _horas_en_mar horas_en_mar
@@ -435,13 +444,28 @@ to registrar_viaje
   let _distancia_recorrida distancia_recorrida
   ask mi_puerto [ 
     set capturas_dia_puerto lput _captura capturas_dia_puerto
+    set capturas_mes_puerto lput _captura capturas_mes_puerto
     set ganancias_dia_puerto lput _ganancia ganancias_dia_puerto
+    set ganancias_mes_puerto lput _ganancia ganancias_mes_puerto
     set horas_en_mar_dia_puerto lput _horas_en_mar horas_en_mar_dia_puerto
+    set horas_en_mar_mes_puerto lput _horas_en_mar horas_en_mar_mes_puerto
     set ganancias_por_hora_dia_puerto lput _ganancia_por_hora ganancias_por_hora_dia_puerto
+    set ganancias_por_hora_mes_puerto lput _ganancia_por_hora ganancias_por_hora_mes_puerto
     set gastos_gasolina_dia_puerto lput _gasto_gasolina gastos_gasolina_dia_puerto
+    set gastos_gasolina_mes_puerto lput _gasto_gasolina gastos_gasolina_mes_puerto
     set distancias_recorridas_dia_puerto lput _distancia_recorrida distancias_recorridas_dia_puerto
+    set distancias_recorridas_mes_puerto lput _distancia_recorrida distancias_recorridas_mes_puerto
     set viajes_finalizados_dia_puerto viajes_finalizados_dia_puerto + 1
+    set viajes_finalizados_mes_puerto viajes_finalizados_mes_puerto + 1
   ]
+  
+  set captura_acumulada captura_acumulada + _captura
+  set ganancia_acumulada ganancia_acumulada + _ganancia
+  set gasto_gasolina_acumulada gasto_gasolina_acumulada + _gasto_gasolina
+  set distancia_recorrida_acumulada distancia_recorrida_acumulada + _distancia_recorrida
+  set horas_en_mar_acumulada horas_en_mar_acumulada + _horas_en_mar
+  set n_acumulada n_acumulada + 1
+   
 end
 
 
@@ -475,7 +499,7 @@ end
 ;; este procedimiento se actualiza mensualmente
 to actualizar_estado_economico
   (ifelse 
-    estado_economico = "viable" and salario_mensual_tripulacion <  SALARIO_MENSUAL_MINIMO_ACEPTABLE [ 
+    estado_economico = "viable" and salario_mensual_tripulacion < SALARIO_MENSUAL_MINIMO_ACEPTABLE [ 
       set estado_economico "crisis"
       set meses_crisis 1
       set shape "barco crisis"
@@ -486,7 +510,7 @@ to actualizar_estado_economico
       set shape "barco viable"
     ]
     estado_economico = "crisis" and salario_mensual_tripulacion <  SALARIO_MENSUAL_MINIMO_ACEPTABLE [ 
-      ifelse meses_crisis < MESES_PARA_COLAPSO
+      ifelse meses_crisis < MESES_PARA_COLAPSO_EMBARCACION
       [ set meses_crisis meses_crisis + 1 ]
       [ set estado_economico "quiebra" 
         set shape "barco quiebra" ]
@@ -536,16 +560,4 @@ to actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados
       ]
     ]
   ]
-end
-
-to-report hay_veda
-  (ifelse 
-    VEDA_ENE_FEB and (time:get "month" fecha = 1  or time:get "month" fecha = 2 ) [ report true ]
-    VEDA_MAR_ABR and (time:get "month" fecha = 3  or time:get "month" fecha = 4 ) [ report true ]
-    VEDA_MAY_JUN and (time:get "month" fecha = 5  or time:get "month" fecha = 6 ) [ report true ]
-    VEDA_JUL_AGO and (time:get "month" fecha = 7  or time:get "month" fecha = 8 ) [ report true ]
-    VEDA_SEP_OCT and (time:get "month" fecha = 9  or time:get "month" fecha = 10) [ report true ]
-    VEDA_NOV_DIC and (time:get "month" fecha = 11 or time:get "month" fecha = 12) [ report true ]
-    [report false ]
-    )
 end

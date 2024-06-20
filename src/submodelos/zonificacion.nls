@@ -83,9 +83,49 @@ to SELECCIONAR_ZONAS_RESTRICCION
 ;    dibujar_borde celdas_restriccion
 ;    dibujar_borde celdas_protegido
     display
+    if not todos_los_sitios_son_accesibles? [
+      user-message "Advertencia: No todas celdas para pescar son accesibles a las embarcaciones, pude que el modelo falle.\n Intenta hacer un paisaje en el que se pueda acceder a cualquier sitio de pesca." 
+    ]
+    init_rutas
   ][
     ask patches [ set ya_me_picaste false ]
   ]
   ;; TODO: tratar casos extremos como que declaren toda la zona pesquera como protegida o que dejen
   ;; a una embarcacion sin posibilidad de regresar a su puerto
+end
+
+to COLOCAR_PLATAFORMAS
+  ifelse mouse-down? [
+    ask patch mouse-xcor mouse-ycor [
+      if not ya_me_picaste [
+        set ya_me_picaste true
+        ;; supuesto: solo se puede poner una plataforma por pixel
+        ifelse tipo = "mar" [
+          ifelse zonificacion != "protegido" [
+            ifelse not any? plataformas-here [
+              instalar_plataforma
+            ][
+              user-message "Aquí ya hay una plataforma. Busca otro lugar para colocar una nueva."
+            ]
+          ][
+            user-message "Esta es un area protegida, aquí no se pueden colocar plataformas."
+          ]
+        ][
+          user-message "No se pueden colocar plataformas en la tierra."
+        ]
+      ]
+    ]
+    actualizar_zonificacion
+    actualizar_transitables_embarcaciones
+    ask embarcaciones [ actualizar_sitios_pesca_mejor_sitio_y_sitios_visitados ]
+    colorear_celdas
+    display
+    if not todos_los_sitios_son_accesibles? [
+      user-message "Advertencia: No todas celdas para pescar son accesibles a las embarcaciones, pude que el modelo falle.\n Intenta hacer un paisaje en el que se pueda acceder a cualquier sitio de pesca." 
+    ]
+    init_rutas
+  ]
+  [
+    ask patches [ set ya_me_picaste false ]
+  ]
 end
