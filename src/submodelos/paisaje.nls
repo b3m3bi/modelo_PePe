@@ -2,6 +2,10 @@ globals [
   celdas_tierra                  ;; agentset (patches): celdas que representan la tierra
   celdas_mar                     ;; agentset (patches): celdas que representan el mar
   num_regiones                   ;; number: número de regiones en las que se dividen las celdas de mar
+  
+  celdas_r1                      ;; agentset (patches): celdas que forman parte de la región 1
+  celdas_r2                      ;; agentset (patches): celdas que forman parte de la región 2
+  celdas_r3                      ;; agentset (patches): celdas que forman parte de la región 3
 ]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -34,5 +38,10 @@ to init_regiones
     if pos_x + 1 < min-pxcor [ print "Advertencia: El tamaño del mundo es menor que el necesario para las longitudes de region dadas. Se completo solo con el espacio disponible." ]
   ])
   if pos_x >= min-pxcor [ print "Advertencia: El tamaño del mundo es mayor que el que suman las longitudes de region dadas. Quedaron celdas de mar sin región asignada." ] 
+  
+  set celdas_r1 celdas_mar with [ num_region = 1 ]
+  set celdas_r2 celdas_mar with [ num_region = 2 ]
+  set celdas_r3 celdas_mar with [ num_region = 3 ]
+
   print "OK"
 end

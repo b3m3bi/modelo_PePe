@@ -40,8 +40,9 @@ embarcaciones-own [
   averidado?
   inactivo_por_veda?               ;; boolean: indica si una embarcación inactiva por respetar una veda
   especies_pescadas                ;; list (number): indica que se pesca (1) o no (0) a la especie en el índice
+  tortugas_matadas                 ;; number: número de tortugas que he la embarcación ha matado
   
-  tortugas_matadas
+  movimiento_acumulado
 ]
 
 globals [
@@ -106,6 +107,7 @@ to init_embarcacion [_puerto _reg_pesca]
   set averidado? false
   set inactivo_por_veda? false
   set tiempo_descansado random horas_descansar
+  set tortugas_matadas 0
   
   set shape "barco1"
   set size 1.1 
@@ -139,6 +141,15 @@ to init_embarcaciones
     ]
   ]
   set precios_biomasa read-from-string PRECIOS_KILO_BIOMASA
+  
+  let regs_pesca_unicas remove-duplicates (sublist regs_pesca 0 NUM_PUERTOS)
+  foreach regs_pesca_unicas [
+    r -> 
+    ask patches with [ num_region = r ][
+      set vecindad_moore_radio (vecindad_moore RADIO_EXPLORAR false)
+    ]
+  ]
+  
   print "OK"
 end
 
@@ -169,18 +180,25 @@ end
 to descansar
   ifelse hay_veda [ set inactivo_por_veda? true ][ set inactivo_por_veda? false ]
   ifelse not inactivo_por_veda? [
-    ifelse tiempo_descansado < horas_descansar  [
-      ;; falta descansar... se descansa una unidad de tiempo
-      set tiempo_descansado tiempo_descansado + 1
-      set tiempo_restante_iteracion tiempo_restante_iteracion - 1
+    let tiempo_descanso_ahora 0
+    ifelse horas_descansar - tiempo_descansado > tiempo_restante_iteracion  [
+      ;; si el tiempo restante es menor al necesario para descansar, descanso todo el tiempo y me quedo descansando (no cambio estado)...
+      set tiempo_descanso_ahora tiempo_restante_iteracion
     ][
-      ;; ya descansé suficiente... planeo mi viaje
+      ;; si el tiempo restante es mayor o igual al necesario para descansar, solo descanso el rato suficiente y me pongo a planear (cambio de estado)...
+      set tiempo_descanso_ahora horas_descansar - tiempo_descansado 
       set estado "planeando"
       set tipo_planeacion "inicio"
     ]
+    
+    ;; actualizo mis tiempos
+    set tiempo_descansado tiempo_descansado + tiempo_descanso_ahora
+    set tiempo_restante_iteracion tiempo_restante_iteracion - tiempo_descanso_ahora
   ][
-    set tiempo_restante_iteracion tiempo_restante_iteracion - 1
+    ;; si estoy en veda solo hago que pase el tiempo
+    set tiempo_restante_iteracion tiempo_restante_iteracion - tiempo_restante_iteracion
   ]
+  
 end
 
 to planear
@@ -198,7 +216,7 @@ to planear
           set destino seleccionar_mejor_sitio_vecino
         ]
         SELELECCION_SITIO_PESCA_CONTINUACION = "un vecino" [
-          set destino one-of [([posibles_sitios_pesca] of myself) at-points (vecindad_moore RADIO_EXPLORAR false)] of patch-here 
+          set destino one-of [([posibles_sitios_pesca] of myself) at-points vecindad_moore_radio] of patch-here 
           if destino = nobody [ show "Estoy perdido" ]
       ])
       set ruta (obtener_ruta_A_star_embarcacion patch-here destino)
@@ -218,7 +236,7 @@ end
 
 to-report seleccionar_sitio_pesca
   (ifelse
-    SELECCION_SITIO_PESCA = "EEI en radio" or SELECCION_SITIO_PESCA = "EEI en region" [ report seleccionar_sitio_EEI ]
+    SELECCION_SITIO_PESCA = "EEI en radio" or SELECCION_SITIO_PESCA = "EEI en region" or SELECCION_SITIO_PESCA = "EEI en radio y region" [ report seleccionar_sitio_EEI ]
     SELECCION_SITIO_PESCA = "aleatorio" [ report seleccionar_sitio_aleatorio ])
 end
 
@@ -226,12 +244,18 @@ to-report seleccionar_sitio_EEI
   ;; se actoan los sitios pesca a solo los vecinos en un radio del mejor sitio
   let _posibles_sitios_pesca nobody
   if SELECCION_SITIO_PESCA = "EEI en radio" [
-    set _posibles_sitios_pesca [([posibles_sitios_pesca] of myself) at-points (vecindad_moore RADIO_EXPLORAR true)] of mejor_sitio
+    set _posibles_sitios_pesca [([posibles_sitios_pesca] of myself) at-points vecindad_moore_radio] of mejor_sitio
   ]
   if SELECCION_SITIO_PESCA = "EEI en region" [
     set _posibles_sitios_pesca posibles_sitios_pesca
   ]
-;  let _posibles_sitios_pesca [vecinos_pesca_region] of mejor_sitio
+  if SELECCION_SITIO_PESCA = "EEI en radio y region" [
+    ifelse random-float 1.0 < PROB_EXP_REGION [
+      set _posibles_sitios_pesca posibles_sitios_pesca
+    ][
+      set _posibles_sitios_pesca [([posibles_sitios_pesca] of myself) at-points vecindad_moore_radio] of mejor_sitio
+    ]
+  ]
   
   ifelse random-float 1.0 < EPSILON [
     ;; explorar
@@ -254,7 +278,7 @@ to-report seleccionar_sitio_EEI
 end
 
 to-report seleccionar_mejor_sitio_vecino
-  report max-one-of (posibles_sitios_pesca at-points (vecindad_moore 1 true)) [sum biomasas]
+  report max-one-of (posibles_sitios_pesca at-points vecindad_moore_radio) [sum biomasas]
 end
 
 to-report seleccionar_sitio_aleatorio
@@ -297,6 +321,26 @@ to moverse
   ]
 end
 
+to moverse2 
+   ifelse patch-here = destino [
+    ;; ya llegué a mi destino
+    ifelse destino = [patch-here] of mi_puerto 
+    [ set estado "desembarcando" ]
+    [ set estado "pescando" ]
+  ][
+   if indice_actual_ruta < (length ruta) - 1 [
+      set movimiento_acumulado movimiento_acumulado + (VELOCIDAD / longitud_celda)
+      while [movimiento_acumulado >= 1 and indice_actual_ruta < (length ruta) - 1][
+        set distancia_recorrida distancia_recorrida + distance (item (indice_actual_ruta + 1) ruta)
+        set  indice_actual_ruta indice_actual_ruta + 1
+        set  movimiento_acumulado movimiento_acumulado - 1
+      ]
+    ]
+    move-to (item indice_actual_ruta ruta)
+    set horas_en_mar horas_en_mar + 1
+    set tiempo_restante_iteracion tiempo_restante_iteracion - 1
+  ]
+end
 
 to pescar
   ;; pesco...
@@ -391,9 +435,10 @@ to desembarcar
   set sitios_visitados []
   set capturas_viaje []
 
+  ;; se consume tiempo y se cambian estados
+  set tiempo_restante_iteracion tiempo_restante_iteracion - 1
   set tiempo_descansado 0
   set estado "descansando"
-  
   if estado_economico = "quiebra" [
     move-to mi_puerto 
     set heading 90
@@ -502,18 +547,15 @@ to actualizar_estado_economico
     estado_economico = "viable" and salario_mensual_tripulacion < SALARIO_MENSUAL_MINIMO_ACEPTABLE [ 
       set estado_economico "crisis"
       set meses_crisis 1
-      set shape "barco crisis"
     ]
     estado_economico = "crisis" and salario_mensual_tripulacion >= SALARIO_MENSUAL_MINIMO_ACEPTABLE [ 
       set meses_crisis 0  
       set estado_economico "viable" 
-      set shape "barco viable"
     ]
     estado_economico = "crisis" and salario_mensual_tripulacion <  SALARIO_MENSUAL_MINIMO_ACEPTABLE [ 
       ifelse meses_crisis < MESES_PARA_COLAPSO_EMBARCACION
       [ set meses_crisis meses_crisis + 1 ]
-      [ set estado_economico "quiebra" 
-        set shape "barco quiebra" ]
+      [ set estado_economico "quiebra" ]
     ]
   )
 end

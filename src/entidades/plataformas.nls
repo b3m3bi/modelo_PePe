@@ -2,13 +2,13 @@ breed [ plataformas plataforma ]
 
 plataformas-own [
   produccion_dia          ;; number: cantidad de hidrocarburo producido en un día
-  ganancia_dia            ;; number: ganancia por la producción de hidrocarburo en un día
-  mi_puerto
-  
-  stock 
-  tiempo_inactivo 
+  ganancia_generada       ;; number: ganancia por la última producción de hidrocarburo que llego al puerto
+  stock                   ;; number: producción que se acumula en la plataforma
+  activo?                 ;; boolean: indica si la plataforma sigue activa
+  ganancia_mes_plataforma 
+  meses_negativos
+  tiempo_en_pausa
 ]
-
 
 to init_plataformas
   print "Inicializando plataformas..."
@@ -52,17 +52,21 @@ end
 to init_plataforma
   set shape "plataforma"
   set color gray - 4
-  set mi_puerto min-one-of puertos [distance myself]
   set produccion_dia 0
-  set ganancia_dia 0
+  set ganancia_generada 0
+  set ganancia_mes_plataforma 0
+  set meses_negativos 0
   set stock 0
-  set tiempo_inactivo 0
+  set activo? true
+  set tiempo_en_pausa 0
 end
 
-to extraer_hidrocarburo
-    
-  ifelse not derramado? [
-    set produccion_dia hidrocarburo * TASA_DECLINACION_HIDROCARBURO
+to extraer_hidrocarburo   
+  if tiempo_en_pausa > 0 [ set tiempo_en_pausa tiempo_en_pausa - 1 ]
+  
+  ifelse activo? and tiempo_en_pausa <= 0 [
+    set produccion_dia min (list EXTRACCION_MAX_HIDROCARBURO (hidrocarburo * TASA_DECLINACION_HIDROCARBURO))
+;    set produccion_dia (hidrocarburo * TASA_DECLINACION_HIDROCARBURO)
     set hidrocarburo hidrocarburo - produccion_dia
   ][
     set produccion_dia 0
@@ -70,4 +74,16 @@ to extraer_hidrocarburo
   ]
   
   set stock stock + produccion_dia
+end
+
+to actualizar_estado_plataformas
+  ifelse ganancia_mes_plataforma < 0 [
+    set meses_negativos meses_negativos + 1
+    if meses_negativos > MESES_PARA_COLAPSO_PLATAFORMA [
+      set activo? false
+      set color gray + 3
+    ]
+  ][
+    set meses_negativos 0
+  ]
 end

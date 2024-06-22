@@ -10,9 +10,6 @@ patches-own [
   derramado?               ;; boolean: indica si una celda está derramada con hidrocarburo o no
   tiempo_desde_derrame     ;; number: tiempo que ha pasado desde que empecé a estar derramado
   
-  ;; tortugas
-  cap_carga                ;; number: capacidad de carga de tortugas que caben en una celda
-  
   ;; ecología
   biomasas                 ;; list (number): lista con la cantidad de biomasa de cada especie
   habitats                 ;; list (number): lista que indica si la especie en un índice peude vivir (1) o no (0) en una celda
@@ -22,7 +19,16 @@ patches-own [
   ;; zonificacion
   zonificacion             ;; string: tipo de zonificación que se le asigna a una celda: "libre", "restriccion", "protegido", "NA" 
   ya_me_picaste            ;; boolean: variable para ayudar a la interactividad al seleccionar areas
+ 
+  ;; tortugas
+  vecinos_derecha          ;; agentset (patches): las 3 celdas a la derecha de una
+  vecinos_izquierda        ;; agentset (patches): las 3 celdas a la izquierda de una
   
+  ;; pesca
+  vecindad_moore_radio
+  
+  ;; visualizacion
+  num_zona                 ;; number: identificador del número de vecindad de zonificación al que pertenece
 ]
 
 to init_celdas
@@ -35,8 +41,6 @@ to init_celdas
     set derramado? false
     set tiempo_desde_derrame -9999
     
-    set cap_carga 0
-    
     set biomasas []
     set habitats []
     set cambio_biomasas []
@@ -44,6 +48,13 @@ to init_celdas
     
     set zonificacion "NA"
     set ya_me_picaste false
+    
+    set vecinos_derecha nobody
+    set vecinos_izquierda nobody
+    
+    set vecindad_moore_radio []
+    
+    set num_zona -9999
     
   ]
   print "OK"

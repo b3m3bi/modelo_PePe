@@ -2,7 +2,7 @@ breed [ buques buque ]
 
 buques-own [
   mi_plataforma                  ;; agent (plataforma): plataforma en la que cargo
-  mi_puerto                      ;; agent (puerto): puerto en el que descargo
+  mi_puerto                      ;; agent (puerto): puerto en el que descargo (el más cercano a mi plataforma)
   ruta_a_puerto                  ;; list (patches): lista de la ruta que debo seguir en un viaje desde la plataforma hacia el pueto
   ruta_a_plataforma              ;; list (patches): lista de la ruta que debo seguir en un viaje desde el puerto hacia la plataforma
   ruta                           ;; list (patches): lista de la ruta que debo seguir en un viaje dado
@@ -14,17 +14,16 @@ buques-own [
   distancia_recorrida            ;; number: distancia que recorre el buque en un viaje (del puerto a la plataforma y de regreso al puerto)
   tiempo_carga                   ;; number: tiempo que lleva cargando el buque
   tiempo_descarga                ;; number: tiempo que lleva descargado el buque
+  activo?
 ]
 
 globals [
-  num_accidentes                 ;; número de accidentes entre buques y embarcaciones pesqueras
   tiempo_en_plataforma           ;; número de horas que un buque pasa en una plataforma
   tiempo_en_puerto               ;; número de horas que un buque pasa en un puerto
 ]
 
 to init_buques
   print "Inicializando buques..."
-  set num_accidentes 0
   set tiempo_en_plataforma 3
   set tiempo_en_puerto 3
   
@@ -53,6 +52,7 @@ to init_buque [_plataforma]
   set distancia_recorrida 0 
   set tiempo_carga 0
   set tiempo_descarga 0
+  set activo? true
 end
 
 to calcular_rutas_buques
@@ -69,7 +69,7 @@ to dinamica_iteracion_buque
 end
 
 to ejecutar_estado_buques
-  if tiempo_restante_iteracion > 0 [
+  if tiempo_restante_iteracion > 0 and activo? [
     (ifelse
       estado = "moviendose"  [ moverse_buque ]
       estado = "cargando"    [ cargando_buque ]
@@ -127,16 +127,39 @@ to descargando_buque
   set produccion_dia_hidrocarburo produccion_dia_hidrocarburo + carga
   set produccion_mes_hidrocarburo produccion_mes_hidrocarburo + carga
   set produccion_total_hidrocarburo produccion_total_hidrocarburo + carga
-  set carga 0
-  
   ;; se registra la distancia recorrida
   set distancia_recorrida_dia_hidrocarburo distancia_recorrida_dia_hidrocarburo + distancia_recorrida
   
-  ;; se define nuevo destino e inicializar variables para viaje de regreso
+  ;; se calcula la ganancia que genera la plataforma y se registra en la plataforma y registros globales
+  let ganancia_por_carga obtener_balance_hidrocarburo_carga
+  ask mi_plataforma [ 
+    set ganancia_generada ganancia_por_carga
+    set ganancia_mes_plataforma ganancia_mes_plataforma  + ganancia_por_carga
+  ]
+  set ganancia_dia_hidrocarburo ganancia_dia_hidrocarburo + ganancia_por_carga
+  set ganancia_mes_hidrocarburo ganancia_mes_hidrocarburo + ganancia_por_carga
+  
+  ;; se inicializan las variables y se define nuevo destino para viaje de regreso
+  set distancia_recorrida 0 
+  set carga 0
   set destino [patch-here] of mi_plataforma
   set ruta ruta_a_plataforma
   set indice_actual_ruta 0
   set tiempo_restante_iteracion tiempo_restante_iteracion - 1
   set estado "moviendose"
-  set distancia_recorrida 0 
+  
+  if not [activo?] of mi_plataforma [
+    move-to mi_puerto 
+    set heading 90
+    fd 1
+    set activo? false
+  ]
+  
+end
+
+to-report obtener_balance_hidrocarburo_carga
+  let costos_transporte distancia_recorrida * COSTO_TRANSPORTE_POR_UNIDAD_DISTANCIA * longitud_celda
+  let costos_mantenimiento _gasto_en_mantenimiento * 1000
+  let ganancia_produccion (carga * PRECIO_CRUDO)
+  report ganancia_produccion - costos_transporte - costos_mantenimiento
 end

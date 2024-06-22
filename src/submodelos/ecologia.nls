@@ -88,22 +88,24 @@ to dispersion
 end
 
 to dinamica_poblacional
-  let i -999
-  (ifelse 
-    (time:get "dayofyear" fecha = item 0 _dias_reproduccion and _num_especies > 0) [ set i 0 ]
-    (time:get "dayofyear" fecha = item 1 _dias_reproduccion and _num_especies > 1) [ set i 1 ]
-    (time:get "dayofyear" fecha = item 2 _dias_reproduccion and _num_especies > 2) [ set i 2 ]
-  )
-  if i != -999 [
-    let n (count embarcaciones with [ activo? and not inactivo_por_veda? and item i especies_pescadas = 1])
-    ask patches [
-      let biomasa_i item i biomasas
-      let Rmin_i item i _Rs_min
-      let Rmax_i item i _Rs_max
-      ;; TODO: ajustar el valor 500 de acuerdo al valor máximo que se le de número máximo de embarcaciones
-      let R_i ((Rmin_i - Rmax_i) / 500) * n + Rmax_i
-      let K_i item i _Ks
-      set biomasas replace-item i biomasas (biomasa_i + ( biomasa_i * R_i * (1 - (biomasa_i / K_i))))
+  let i_s []
+  if (time:get "dayofyear" fecha = item 0 _dias_reproduccion and _num_especies > 0) [ set i_s lput 0 i_s ]
+  if (time:get "dayofyear" fecha = item 1 _dias_reproduccion and _num_especies > 1) [ set i_s lput 1 i_s ]
+  if (time:get "dayofyear" fecha = item 2 _dias_reproduccion and _num_especies > 2) [ set i_s lput 2 i_s ]
+  
+  if i_s != [] [
+    foreach i_s [
+      i -> 
+      let n (count embarcaciones with [ activo? and not inactivo_por_veda? and item i especies_pescadas = 1])
+      ask patches [
+        let biomasa_i item i biomasas
+        let Rmin_i item i _Rs_min
+        let Rmax_i item i _Rs_max
+        ;; TODO: ajustar el valor 500 de acuerdo al valor máximo que se le de número máximo de embarcaciones
+        let R_i ((Rmin_i - Rmax_i) / 500) * n + Rmax_i
+        let K_i item i _Ks
+        set biomasas replace-item i biomasas (biomasa_i + ( biomasa_i * R_i * (1 - (biomasa_i / K_i))))
+      ]
     ]
   ]
 end  

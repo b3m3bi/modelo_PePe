@@ -18,7 +18,7 @@ obtener_ultimo_dia_mes <- function(fecha_inicio, fecha_final){
 
 fecha_inicial = as.Date("2024-01-01")
 fecha_final = as.Date("2034-01-01")
-fechas_mensuales <- seq.Date(from=fecha_inicio, to = fecha_final, by="month")
+fechas_mensuales <- seq.Date(from=fecha_inicial, to = fecha_final, by="month")
 dias_desde_inicio <- as.numeric(fechas_mensuales - fecha_inicial + 1)
 horas_iteracion <- 24
 ticks_seq <- (dias_desde_inicio - 1) * (24 / horas_iteracion)

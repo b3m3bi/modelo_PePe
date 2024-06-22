@@ -9,7 +9,6 @@ globals [
   _subsidio_mensual_gasolina           ;; number: clon de la variable SUBSIDIO_MENSUAL_GASOLINA para evitar cambios durante la simulación
   _gasto_en_mantenimiento              ;; number: clon de la variable GASTO_EN_MANTENIMIENTO para evitar cambios durante la simulación 
   meses_crisis_hidrocarburo            ;; number: número de meses que la industria petrolera lleva en crisis
-  estado_economico_hidrocarburo        ;; string: estado económico de la industrua petrolera ("viable" "crisis" "colapso")
 ]
 
 to init_hidrocarburo
@@ -20,7 +19,6 @@ to init_hidrocarburo
   set _gasto_en_mantenimiento GASTO_EN_MANTENIMIENTO
   set produccion_total_hidrocarburo 0
   set meses_crisis_hidrocarburo 0
-  set estado_economico_hidrocarburo "viable"
   
   reset_registros_diarios_hidrocarburo
   reset_registros_mensuales_hidrocarburo
@@ -41,12 +39,15 @@ end
 to reset_registros_mensuales_hidrocarburo
   set ganancia_mes_hidrocarburo 0
   set produccion_mes_hidrocarburo 0
+  ask plataformas [ set ganancia_mes_plataforma 0 ]
 end
 
 to subsidiar_gasolina
-  ask embarcaciones [
-    set saldo_subsidio_gasolina _subsidio_mensual_gasolina
-    set ganancia_mes_hidrocarburo ganancia_mes_hidrocarburo - _subsidio_mensual_gasolina
+  if any? plataformas [
+    ask embarcaciones [
+      set saldo_subsidio_gasolina _subsidio_mensual_gasolina
+      set ganancia_mes_hidrocarburo ganancia_mes_hidrocarburo - _subsidio_mensual_gasolina
+    ]
   ]
 end
 
@@ -58,11 +59,11 @@ to iniciar_derrame [ x y ]
 end
 
 to dinamica_derrame
-  
   let prob_ocurrencia_derrame _gasto_en_mantenimiento * ( - (MAX_PROB_OCURRENCIA_DERRAME - MIN_PROB_OCURRENCIA_DERRAME) / 5) + MAX_PROB_OCURRENCIA_DERRAME
-  if random-float 1.0 < prob_ocurrencia_derrame and any? plataformas [
-    let origen [patch-here] of one-of plataformas
-    iniciar_derrame [pxcor] of origen [pycor] of origen
+  if random-float 1.0 < prob_ocurrencia_derrame and any? plataformas with [activo?] [
+    let origen one-of plataformas with [activo?]
+    ask origen [ set tiempo_en_pausa tiempo_en_pausa + TIEMPO_DERRAMADO ]
+    iniciar_derrame [pxcor] of [patch-here] of origen  [pycor] of [patch-here] of origen
     set num_derrames num_derrames + 1
   ]
   extender_derrame
@@ -91,17 +92,10 @@ to extender_derrame
   ]
 end
 
-to calcular_balance_hidrocarburo
-  let costos_transporte distancia_recorrida_dia_hidrocarburo * COSTO_TRANSPORTE_POR_UNIDAD_DISTANCIA * longitud_celda
-  let costos_mantenimiento (count plataformas) * _gasto_en_mantenimiento * 1000
-  let ganancia_produccion (produccion_dia_hidrocarburo * PRECIO_CRUDO)
-  set ganancia_dia_hidrocarburo ganancia_produccion - costos_transporte - costos_mantenimiento
-  set ganancia_mes_hidrocarburo ganancia_mes_hidrocarburo + ganancia_dia_hidrocarburo
-end
-
-to actualizar_estado_economico_hidrocarburo
-  ifelse ganancia_mes_hidrocarburo <= 0 
-  [ set estado_economico_hidrocarburo "colapso"]
-  [ set estado_economico_hidrocarburo "viable"]
-end
-
+;to calcular_balance_hidrocarburo
+;  let costos_transporte distancia_recorrida_dia_hidrocarburo * COSTO_TRANSPORTE_POR_UNIDAD_DISTANCIA * longitud_celda
+;  let costos_mantenimiento (count plataformas) * _gasto_en_mantenimiento * 1000
+;  let ganancia_produccion (produccion_dia_hidrocarburo * PRECIO_CRUDO)
+;  set ganancia_dia_hidrocarburo ganancia_produccion - costos_transporte - costos_mantenimiento
+;  set ganancia_mes_hidrocarburo ganancia_mes_hidrocarburo + ganancia_dia_hidrocarburo
+;end

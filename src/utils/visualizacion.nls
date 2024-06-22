@@ -1,5 +1,15 @@
 breed [ etiquetas_region etiqueta_region ]
 
+globals [
+  num_zonas
+]
+
+to init_visualizacion
+  formar_vecindades
+  dibujar_regiones
+  dibujar_bordes_zonas
+end
+
 to colorear_celdas
   
   ask plataformas [
@@ -34,12 +44,17 @@ to colorear_celdas
     colorear_derrames
   ]
   
+  if COLOREAR_POR = "biomasa y derrames" [
+    colorear_biomasa_total_especie
+    colorear_derrames
+  ]
+  
   if COLOREAR_POR = "hidrocarburo" [
     ask patches [
       set pcolor scale-color black hidrocarburo HIDROCARBURO_INICIAL 0
     ]
     ask plataformas [
-      set plabel (word (round ganancia_dia) "     ")
+      set plabel (word (round ganancia_mes_plataforma) "     ")
       set plabel-color white
     ]
   ]
@@ -51,9 +66,6 @@ to colorear_celdas
     colorear_derrames
   ]
   
-  if COLOREAR_POR = "habitat tortugas" [
-    ask patches [ set pcolor scale-color sky cap_carga (MAX_CAPACIDAD_CARGA_TORTUGAS * 2) 0  ]
-  ]
 end
 
 to colorear_derrames
@@ -130,8 +142,8 @@ to dibujar_borde [celdas]
   ask celdas [
     sprout 1 [
       set heading 0
-      if zonificacion = "restriccion" [ set color red ]
-      if zonificacion = "protegido"   [ set color lime ]
+      if zonificacion = "restriccion" [ set color red + 1 ]
+      if zonificacion = "protegido"   [ set color lime + 2]
       set pen-size 1.5
       setxy (xcor - 0.5) (ycor - 0.5)
       repeat 4 [
@@ -144,30 +156,49 @@ to dibujar_borde [celdas]
   ]
 end 
 
-;to dibujar_borde_zona [_num_zona ]
-;  ask patches with [ num_zona = _num_zona][
-;    sprout 1 [
-;      set heading 0
-;      if zonificacion = "restriccion" [ set color red ]
-;      if zonificacion = "protegido"   [ set color lime ]
-;      set pen-size 1.5
-;      setxy (xcor - 0.5) (ycor - 0.5)
-;      repeat 4 [
-;        let cuadro_izquierda patch-left-and-ahead 45 0.5
-;        ifelse (cuadro_izquierda != nobody and [num_zona] of cuadro_izquierda != [num_zona] of myself) or cuadro_izquierda = nobody
-;        [pen-down]
-;        [pen-up]
-;        fd .99
-;        rt 90
-;      ]
-;      die
-;    ]
-;  ]
-;end
-;  
-;to dibujar_bordes_zonas
+to dibujar_borde_zona [_num_zona ]
+  ask patches with [ num_zona = _num_zona][
+    sprout 1 [
+      set heading 0
+      if zonificacion = "restriccion" [ set color red ]
+      if zonificacion = "protegido"   [ set color lime ]
+      set pen-size 1.5
+      setxy (xcor - 0.5) (ycor - 0.5)
+      repeat 4 [
+        let cuadro_izquierda patch-left-and-ahead 45 0.5
+        ifelse (cuadro_izquierda != nobody and [num_zona] of cuadro_izquierda != [num_zona] of myself) or cuadro_izquierda = nobody
+        [pen-down]
+        [pen-up]
+        fd .99
+        rt 90
+      ]
+      die
+    ]
+  ]
+end
+  
+to dibujar_bordes_zonas
 ;  clear-drawing
-;  foreach (range 0 (num_zonas)) [
-;    i -> dibujar_borde_zona i
-;  ]
-;end
+  foreach (range 1 (num_zonas + 1)) [
+    i -> dibujar_borde_zona i
+  ]
+end
+
+to formar_vecindades
+  ask patches [ set num_zona -9999 ]
+  let zona 1
+  ask celdas_mar [
+    if ((zonificacion = "restriccion" or  zonificacion = "protegido") and num_zona = -9999) [
+      formar_vecindad zona
+      set zona zona + 1
+    ]
+  ]
+  set num_zonas max [num_zona] of patches
+end
+
+to formar_vecindad [ zona ]
+  set num_zona zona
+  ask neighbors4 with [ zonificacion = [zonificacion] of myself and num_zona = -9999 ][
+    formar_vecindad zona
+  ]
+end
