@@ -23,7 +23,7 @@ Este es el código del modelo PePe, un modelo basado en agentes adaptado para se
    git colone https://github.com/b3m3bi/modelo_PePe.git
    ```
 3. Abrir NetLogo
-4. Abrir el modelo: `File` > `Open` > abrir archivo `modeloPePe_2.nlogo`
+4. Abrir el modelo: `File` > `Open` > abrir archivo `modeloPePe_2.nlogo` (en carpeta `src`)
 
 
 ## Organización del repositorio
@@ -32,3 +32,4 @@ Este repositorio se organiza de la siguiente manera:
 
 - [`docs`](./docs): documentación del modelo
 - [`src`](./src): código del modelo
+- [`calibracion`](./calibracion): experimentos para la calibración del modelo
