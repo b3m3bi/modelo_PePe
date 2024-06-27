@@ -13,6 +13,13 @@ globals [
   distancia_recorrida_acumulada ;; number: distancia total recorrida durante toda la simulación
   horas_en_mar_acumulada        ;; number: cantidad de horas en el mar durante toda la simulación
   
+  captura_prom_ultimo_mes             ;; number: registra la captura promedio del último mes
+  ganancia_prom_ultimo_mes            ;; number: registra la ganancia promedio del último mes
+  gasto_gasolina_prom_ultimo_mes      ;; number: registra el gasto en gasolina promedio del último mes
+  distancia_recorrida_prom_ultimo_mes ;; number: registra la dinstancia recorrida promedio del último mes
+  horas_en_mar_prom_ultimo_mes        ;; number: registra las horas en mar promedio del último mes
+  viajes_prom_ultimo_mes              ;; number: registra el número de viajes promedio del último mes
+  
   n_acumulada                   ;; number: cantidad de registros 
   
   dias_registros_mes            ;; list (number): lista con los valores de día cuando se deben hacer un registro mensual
@@ -36,6 +43,13 @@ to init_registros
   set horas_en_mar_acumulada 0
   set n_acumulada 0
   
+  set captura_prom_ultimo_mes 0
+  set ganancia_prom_ultimo_mes 0
+  set gasto_gasolina_prom_ultimo_mes 0
+  set distancia_recorrida_prom_ultimo_mes 0
+  set horas_en_mar_prom_ultimo_mes 0
+  set viajes_prom_ultimo_mes 0
+  
   set dias_registros_mes  [ 1 32 61 92 122 153 183 214 245 275 306 336 367 398 426 457 487 518 548 579 610 640 671 701 732 763 791 822 852 883 913 944 975 1005 1036 1066 1097 1128 1156 1187 1217 1248 1278 1309 1340 1370 1401 1431 1462 1493 1522 1553 1583 1614 1644 1675 1706 1736 1767 1797 1828 1859 1887 1918 1948 1979 2009 2040 2071 2101 2132 2162 2193 2224 2252 2283 2313 2344 2374 2405 2436 2466 2497 2527 2558 2589 2617 2648 2678 2709 2739 2770 2801 2831 2862 2892 2923 2954 2983 3014 3044 3075 3105 3136 3167 3197 3228 3258 3289 3320 3348 3379 3409 3440 3470 3501 3532 3562 3593 3623 3654 ]
   set ticks_registros_mes map [ d -> (d - 1) * (24 / horas_iteracion)] dias_registros_mes
   print "OK"
@@ -49,6 +63,21 @@ to reset_registros_diarios_todo
   set ganancias_por_hora_dia_todo []
   set gastos_gasolina_dia_todo []
   set distancias_recorridas_dia_todo []
+end
+
+
+to registros_promedios_mensuales
+  set captura_prom_ultimo_mes mean ([(sum capturas_mes_puerto) / num_embarcaciones] of puertos )
+  set ganancia_prom_ultimo_mes mean ([(sum ganancias_mes_puerto) / num_embarcaciones] of puertos)
+  set gasto_gasolina_prom_ultimo_mes mean ([(sum gastos_gasolina_mes_puerto) / num_embarcaciones] of puertos)
+;  set distancia_recorrida_prom_ultimo_mes mean ([(sum distancias_recorridas_mes_puerto) / num_embarcaciones] of puertos)
+  ifelse member? 0 [viajes_finalizados_mes_puerto] of puertos 
+  [ set distancia_recorrida_prom_ultimo_mes 0 ]
+  [ set distancia_recorrida_prom_ultimo_mes mean ([mean distancias_recorridas_mes_puerto] of puertos) * longitud_celda ]
+  ifelse member? 0 [viajes_finalizados_mes_puerto] of puertos 
+  [ set horas_en_mar_prom_ultimo_mes 0 ]
+  [ set horas_en_mar_prom_ultimo_mes mean ([mean horas_en_mar_mes_puerto] of puertos) ]
+  set viajes_prom_ultimo_mes mean ([viajes_finalizados_mes_puerto / num_embarcaciones] of puertos)
 end
 
 to registro_puertos_a_total

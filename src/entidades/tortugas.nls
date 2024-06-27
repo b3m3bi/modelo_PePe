@@ -7,6 +7,9 @@ tortugas-own [
 
 globals [ 
   _meses_migracion             ;; list (number): clon de MESES_MIGRACION con el número de mes cuando migran de ida y de regreso
+  celdas_alimentacion      ;; agentset (patches): celdas donde las tortugas pasan su etapa anual de alimentacion
+  celdas_reproduccion      ;; agentset (patches): celdas donde las tortugas pasan su etapa anual reproductiva
+  
 ]
 
 to init_tortugas
@@ -17,12 +20,18 @@ to init_tortugas
     set vecinos_izquierda (patch-set (patch-at-heading-and-distance -45 1) (patch-at-heading-and-distance -90 1) (patch-at-heading-and-distance -135 1)) with [ tipo = "mar" ]
   ]
   
+;  set celdas_reproduccion patches with [ num_region = 1 ]
+  set celdas_reproduccion patches with [ pxcor >  (max-pxcor - LONG_TIERRA  - 5) and pxcor <= max-pxcor - LONG_TIERRA  ]
+;  set celdas_alimentacion patches with [ num_region = 3 ]
+  set celdas_alimentacion patches with [ pxcor <  min-pxcor + 13]
+  
+  
   ;; se crean las tortugas
   create-tortugas TAMANIO_POB_INICIAL_TORTUGAS [
     set shape "tortuga"
     set color brown + 1
     set size 0.4
-    move-to one-of celdas_r3
+    move-to one-of celdas_alimentacion
     set estado "alimentacion"
     set tiempo_llegue_alimentacion 60
   ]
@@ -53,7 +62,7 @@ to reproducirse_tortugas
 end
 
 to mortalidad_sobrepoblacion
-  ask celdas_r3 [
+  ask celdas_alimentacion [
     let tortugas_alimentacion tortugas-here with [tiempo_llegue_alimentacion > TIEMPO_BUFFER_TORTUGAS]
     if count tortugas_alimentacion > CAPACIDAD_CARGA_TORTUGAS [
       ask n-of (count tortugas_alimentacion - CAPACIDAD_CARGA_TORTUGAS) tortugas_alimentacion [ die ]
@@ -63,12 +72,13 @@ end
 
 to moverse_tortuga
   ;; si ya llegué a las regiones de reproducción y alimentación
-  if estado = "migracion ida" and num_region = 1 [ set estado "reproduccion" ]
-  if estado = "migracion regreso" and num_region = 3 [ set estado "alimentacion" ]
+  if estado = "migracion ida" and member? patch-here celdas_reproduccion [ set estado "reproduccion" ]
+  if estado = "migracion regreso" and member? patch-here celdas_alimentacion [ set estado "alimentacion" ]
   
   ;; se mueven
-  if estado = "alimentacion" [ face one-of neighbors with [ num_region = 3 ] set tiempo_llegue_alimentacion tiempo_llegue_alimentacion + 1 ]
-  if estado = "reproduccion" [ face one-of neighbors with [ num_region = 1 ]]
+  let vecindad_moore_1 [[-1 -1] [-1 0] [-1 1] [0 -1] [0 1] [1 -1] [1 0] [1 1]]
+  if estado = "alimentacion" [ face one-of celdas_alimentacion at-points vecindad_moore_1 set tiempo_llegue_alimentacion tiempo_llegue_alimentacion + 1 ]
+  if estado = "reproduccion" [ face one-of celdas_reproduccion at-points vecindad_moore_1 ]
   if estado = "migracion ida"[ face one-of vecinos_derecha ]
   if estado = "migracion regreso" [ face one-of vecinos_izquierda ]
   jump 1    

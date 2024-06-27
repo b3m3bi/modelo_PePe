@@ -123,7 +123,8 @@ to init_embarcaciones
   foreach (range NUM_PUERTOS) [
     i -> 
     ask puertos with [num_puerto = i] [
-      hatch-embarcaciones (item i nums_embarcaciones) [
+      set num_embarcaciones (item i nums_embarcaciones)
+      hatch-embarcaciones num_embarcaciones [
         init_embarcacion myself (item i regs_pesca)
       ]
     ]

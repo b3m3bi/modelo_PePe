@@ -2,6 +2,7 @@ breed [ puertos puerto ]
 
 puertos-own [
   num_puerto                       ;; number: identificador del puerto
+  num_embarcaciones
   capturas_dia_puerto              ;; list (number): lista con todas las capturas en un dia de las embarcaciones que llegan a un puerto
   ganancias_dia_puerto             ;; list (number): lista con todas las ganancias en un día de las embarcaciones que llegan a un puerto
   horas_en_mar_dia_puerto          ;; list (number): lista con todas las horas en el mar en un día de las embarcaciones que llegan a un puerto
@@ -39,6 +40,7 @@ to init_puertos
     create-puertos 1 [
       init_puerto
       set num_puerto p
+      set num_embarcaciones 0
       setxy ( max-pxcor - LONG_TIERRA + 1 ) pos_y
       set tipo "puerto"
     ]
@@ -58,6 +60,7 @@ to reset_registros_diarios_puerto
 end
 
 to reset_registros_mensuales_puerto  
+    
   set capturas_mes_puerto []
   set ganancias_mes_puerto []
   set horas_en_mar_mes_puerto []

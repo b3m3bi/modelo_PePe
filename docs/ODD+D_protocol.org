@@ -5,55 +5,56 @@
 * Overview
 ** Purpose
 *** What is the purpose of the study?
-To understand the possible consequences of the management strategies that impact on the distribution of the shared space between the fishing industry, oil industry and conservation in the Bank of Campeche. To build in a participatory way a system of agreements towards the sustainable use of the sheared seaspace, by the use of serious games.
+To understand the possible consequences of the management strategies that impact on the distribution of the shared space between the fishing industry, oil industry and conservation in the Bank of Campeche. To build  a system of agreements towards the sustainable use of the sheared seaspace, by the use of serious games.
 *** For whom is the model designed?
 For different local stakeholders participating in workshops and interested in the usage and management of the sea landscape (fisheries leaders, fishers, conservation agencies representatives, oil industry representatives, goverment representatives).
 ** Entities, state variables and scales
 *** What kinds of entities are in the model?
 - one human entity: boats
-- two infrastructure entity: oil platforms, ports
+- two infrastructure entity: oil platforms, oil tankers, ports
 - one biological entity: turtles
 - one bio-physical entity: sea patches
 *** By what attributes (i.e., state variables and parameters) are these  entities characterised?
-- Boats: a port where it lands, a fishing region, an state describing the action it carries out at each moment (resting, planning, moving, fishing, landing), a prefered fishing patch, a catch and income, a capturability and maximum vessel capacity, a crew size, an economic state.
+- Boats: a port where it lands, a fishing region, an state describing the action it carries out at each moment (resting, planning, moving, fishing, landing), a prefered fishing patch, a catch and income, a capturability and maximum vessel capacity, a crew size, an economic state (viable, crisis, bankruptcy).
 - Oil platforms: a daily production and income.
+- Oil tankers: a platform where it loads and a port where it lands
 - Turtles: a state describing if it is migrating or feeding.
-- Sea patches: a type (sea, land), the biomass of the fishing species living there, an oil concentration, a zoning type (restricted, protected, free), a region id representing different fishing regions, a spilled state.
+- Sea patches: a type (sea, land), the biomass of the fishing species, an oil concentration, a zoning type (restricted, protected, free), a region id representing different fishing regions, a spilled state.
 *** What are the exogenus factors/drivers of the model?
-The catch and oil prices are fixed.
+The catch and oil prices are fixed. The probability of an oil spill probabilities is fixed. 
 *** If applicable, how is space included in the model?
-Space is included implicitly, each patch represents a spatial unit and boats, turtles and biomass move in the space.
+Space is included implicitly, each patch represents a spatial unit, ports and oil platforms have a fixed position and boats, oil tankers, turtles and biomass move in the space.
 *** What are the temporal and spatial resolutions and extents of the model?
-Each time step represents a day. The size of the virtual world is 50 \times 50 pixels (with 3 extra pixels at the right of the word representing land) where each individual patch represents 1 km^2 representing a sea area of 2,500 km^2 which corresponds to an aproximate fishing area of a local comunity.
+Each time step represents a day. The size of the virtual world is 30 \times 30 pixels (with 3 extra pixels at the right of the word representing land) where each individual patch represents 3 km^2 representing a sea area of 8,100 km^2 which corresponds to an aproximate fishing area of a local comunity.
 ** Process overview and scheduling
 *** What entity does what, and in what order?
 Daily a boat has 24 hours to carry out 5 different activities: rest at port, plan next trip, move towards a destination, fish and land at port. Each activity costs time to the boat.
 Daily the biomass at a patch disperses to neighbor patches, and annualy biomass at each patch regenerates.
-Daily oil platforms extract oil and oil spills can ocurr following a probability.
-Daily turtles move in their feeding region and annualy they migrate to the coast to lay eggs.
-Game thresholds are checked monthly.
+Daily oil platforms extract oil and oil spills can ocurr with certain a probability. While oil platforms are profitable oil tankers transport the production to nearest port.
+Turtles move daily to neighboring patches, and migrate and reproduce one a year.
+Output variables and game thresholds are updated and checked monthly.
 * Design Concepts
 ** Theoretical and Empirical Background
 *** Which general concepts, theories or hypotheses are underlying the model's design at the system level or at the level(s) of the submodel(s) (apart from the decision model)? What is the link to complexity and the purpose of the model?
-Biomass regenerates following a logistic equation. Biomass disperses following by diffusion. Oil extraction follows a exponential decay. Turtles behaivour follow a general migratory pattern characteristic of the species.
+Biomass regenerates following a logistic equation. Biomass disperses by simple diffusion. Oil extraction follows a exponential decay limited by a maximum extraction capacity. Turtles behaivour follow a general migratory pattern characteristic of the species.
 *** On what assuptions is/are the agents' decision model(s) based?
-To choose where to fish boat agents follow an Explore-Exploit-Imitate dynamics [cite:@bailey2019], a modification of the epsilon-greedy algorithm of the Explore-Exploit dilemma. To choose where to continue fishing during a trip boat agents follow and /ad-hoc/ rule where they choose randomly a nearby patch.
+To choose where to fish boat agents follow an Explore-Exploit-Imitate dynamics [cite:@bailey2019], a modification of the epsilon-greedy algorithm of the Explore-Exploit dilemma. To choose where to continue fishing during a trip boat agents follow and /ad-hoc/ rule where they choose randomly a nearby patch. 
 *** Why is/are certain decision model(s) chosen?
 The decision model of the boat agents was chosen because this simple model has been previously demonstrated to reproduce some empirical observed patterns [cite:@bailey2019; @carrella2020].
-Some main decision of the model such as the fishing region, oil platforms region, protected area size and location are left to the game players. The game narrative treats the players as a members of a spatial planning committee that are exposed to different situations. One purpose of the game is to highlight trade-offs that emerge form some management decisions of these three sectors.
+Some main decision of the model such as the fishing region, number of fishers, oil platforms region, protected area size and fishing bans are left to the game players. The game narrative treats the players as a members of a spatial planning committee that are exposed to different scenarios. One purpose of the game is to highlight trade-offs that emerge form some management decisions of these three sectors.
 *** If the model/submodel (e.g., the decision model) is based on empirical data, where to the data come from?
-The model is not based on empirical data.
+The conceptual model is not based on empirical data. Some calibration of parameter is based on empirical data.
 *** At which level of aggregation where the data available?
 Does noy apply.
 ** Individual Decision Making
 *** What are the subjects and objects of the decision-making? On which level of aggregation is decision-making modelled? Are multiple levels of decision making included?
-Boats decide the patch where they are going to fish.
+Boats decide the patch where they are going to fish using the Explor-Exploit-Imitate algorithm [cite:@bailey2019].
 *** What is the basic rationality behind agent decision-making in the model? Do agents pursue an explicit objetive of have other success criteria?
 Boat agents choose where to fish based on where they or their friends have gained the most economic income in previous trips. As the income gained changes as the biomass available at a patch goes down and as boats go farther away form the port, they need to explore new sites to increase again their income. 
 *** How do agents make their decisions?
 Se details at Submodel section.
 *** Do the agents adapt their behavious to changing endogenous and exogenous sate variables? And if yes, how?
-Yes. Boat agents choose where to fish based on the income they gain in previos trips in a site. The catches that determine the gain change as biomass availability fluctuates with competition, migration and regrowth. Agents adapt this changes by exploring new fishing sites.
+Yes. Boat agents choose where to fish based on the income they gain in previos trips in a site. The catches that determine the gain change as biomass availability fluctuates with competition, migration, regrowth and oil spill damage. Agents adapt this changes by exploring new fishing sites.
 *** Do social norms or cultural values play a role in the decision-making process?
 No.
 *** Do spatial aspects play a role in the decision process?
@@ -61,15 +62,15 @@ No. But the distance traveled influence the gain that the boat agents gain from 
 *** Do temporal aspect play a role in the decision process?
 Yes. Boat agents have a memory of the last place where they fished and got the best catches and the economic gain they got fishing there. 
 *** To which extent and how is uncertainty included in the agents' decision rules?
-Given that a best fishing patch of a boat agent may change in the future given the competition with other boats and migration and population dynamics of biomass, agents may choose with certain probability to explore a new patch.
+Given that a best fishing patch of a boat agent may change in the future given the competition with other boats, migration and population dynamics of biomass and oill spill damage, agents may choose with certain probability to explore a new patch.
 ** Learning
 *** Is individual learing included in the decision process? How do invidivuals change their decision rules over time as consequence of their experience?
 Yes. Explore-Exploit-Imitate is a rudimental way in which boat agents learn the best sites to fish. Agents learn to fish first in patches close to the port as the travel costs are cheaper. As biomass and income goes down they move outwards to new sites.
 *** Is collective learing implemented in the model?
-Yes. Boat agents can share information with their firends about their previous best fishing site and income. When an agent identifies a friend whose income was grater than its, it imitates the best fishing site of the firend. This simple mechanism makes more quick and efficient the learing of all boat agents.
+Yes. Boat agents can share information with their firends about their previous best fishing site and income. When an agent identifies a friend whose income was grater than its, it imitates the best fishing site of the firend. This simple mechanism makes more quick and efficient initia the learning of all boat agents.
 ** Individual Sensing
 *** What endogenous and exogenous state variables are individuals assumed to sense and consider in their decisions? Is the sensing process erroneus?
-Boat agents can sens the catch, income and distance traveled. 
+Boat agents can sens the catch, income and distance traveled (endogenous variables). 
 *** What state variable of which other individuals can an individual perceive? Is the sensing process erroneous?
 Boat agents can access without error the best fishing site and income of their friends.
 *** What is the spatial scale of sensing?
@@ -84,16 +85,61 @@ Data on income gained fishing in a patch.
 *** What internal models are agents assumed to use to estimate future conditions of consequences of their decisions?
 The Explore-Explit-Imitate model [cite:@bailey2019].
 *** Might agents be erroneous in the prediction process, and how is it implemented?
-Yes, as boat agent decision is based on previous trip and as biomass available in a patch changes from competition with other boats, migration and regrowth, the patch on which previously they got high catches might give them bad catches in subsequent visits. 
+Yes, as boat agent decision is based on previous trip and as biomass available in a patch changes from competition with other boats, migration and regrowth, and oil spill damage the patch on which previously they got high catches might give them bad catches in subsequent visits. 
 ** Interaction
+*** Are interactions among agents and entities assumed as direct or indirect
+Boats interact directly with other boats by sharing information. Boats interact directly with the sea patches by consuming the fishing resource (biomass). Boats and platforms interact indirectly as platforms can reduce available biomass for fishers through restricting reducing the fishing area and reducing biomass by oilspils. Turtles have a direct interaction with boats and platforms as there is a probability of death whene there is a boat fishing or an oil spill in the patch where they are.
+*** On what do the interactions depend?
+Boats interactions with other boats depend on a random netrwork. Boats interaction with biomass depend on the distance form the port or previous sites where they have fished. Fishing resticion areas are definied at a certain Moore neihborhood from oil platforms. Oil splil extensions depend on the heighborhood of previouly contaminated patches. 
+*** If the interactions involve communication, how are such communications represented?
+When planning a new fishing trip boats can access the variable of the best fishing site of their two friends and compare it to theirs.
+*** If a coordination network exists, how does it affect the agent behaviour? Is the structure of the network imposed or emergent?
+The firendship network allows boats to learn more rapidly where are the fishing sites that generate a greater income. To build the netowrk each boat is connected to other two randomly choosen boats from the same port. 
 ** Collectives
+*** Do the individuals form or belong to aggregations that affect, and are affected by, the individuals? Are these aggregations imposed by the modeller or do they emerge during the simulation?
+An aggregate fishing behaivour emerges from the boat frendship network. Depending on the number of friends and boats there can be a single of multiple aggregations.
+*** How are collectives represented?
+Boat collectives are emergent properties resulting from the Explore-Explit-Imitate algorithm. (The model can be extended to consider more than one port, in this case the boats can only form collectives with boats of their same port).
 ** Heterogeneity
+*** Are the agents heterogeneous? If yes which state variables and/or processes differ between the agents?
+In the base model with only a single port agents are homogeneous. In the extended model with more than one port agents differ in their fishing parameters (fishing region, capacity, catchability, resting times, etc).
+*** Are the agents heterogeneous in their decision-making? If yes, which decision models or decision objects differ between the agents?
+Agents are homogeneous in their decision-making.
 ** Stochasticity
+*** What processes (including initialization) are modeled by assuming they are random or partly random?
+The positioning of oil platforms in the landscape is partly random (we restrict non-playable landscapes where there are inaccesible fishing patches). The friendship network of the boats is random, each boat links to two other randomly choosen boats that land in the same port as them. Starting prefared fishing site of boats is choosen randomly. Explore-Explit-Imitate algorithm has an stochastic component as boats explore a new fishing sites with certain probability. Oil spills ocurr acording to a given probability and extend following a stochactic percolation model. Turtles initial position is random in their feeding region. Turtles move randomly to their neighbors.
 ** Observation
+*** What data are collected from the ABM for testing, understanding and analyzing it, and how and when are they collected?
+To analyse the fishing submodel we collect data of: catches, fishing income, distance travelled, trip duration, gas expense, average salary and number of viables/crisis/bankrupt boats. This data is collected monthly before the reinitialization of the registers.
+To analyse the oil submodel we collect data of: total production, aggregate production and monthly total income.
+To analyse the ecological submodels we collect daily data of: biomass of each species and number of turtles. 
+*** What key results, outputs of characteristics of the model are emerging from the individuales? (Emergence)
+The model captures the formation of fishing fronts, also captures classical bioeconomic results (reduction of catches with increasing number of boats, increase fishing effort with as resource depletes)
 * Details
 ** Implementation Details
+*** How has the model been implemented?
+The model was implemented in NetLogo 6.4.0
+*** Is the model accessible and if so where?
+Model is available at the [[https://github.com/b3m3bi/modelo_PePe][github repository]]. It will be uploaded to comses.
 ** Initialisation
+*** What is the initial state of the model world, i.e., at time t=0 of a simulation run?
+Each patch is initialized with its maximum carrying capacity and with the maximal concentration of oil. There are 3 different species (shrimp, mackerel, huachinango) corresponding to 3 different fishing regions (coasline, platforms, deep water). All boats start in resting state and with an income of $7500 MXN. Oil platroform position is randomly choosen in a specified area (same options as fishing regions). Oil tankers start at their platform. Turtles start at a random position in their feeding area (that corresponds to the deep water region). 
+*** Is initialization always the same, or is it allowed to vary amons simulations?
+Each simulation generates a new landscape with different position of the oil platforms in the indicated region. All non-playable landscapes where there is a patch not accesible to boats, due to the restiction area arround platformas, are ignored.
+*** Are the initial values chosen arbitrarily of based on data?
+Some initial values of parameters are based on data. Others where obtained throug a calibation process based on empirical data. An other parameters where chosen aribrarily for increasing the attractivness and playability of the model.
+A player can control de initial values of: number of boats, fishing region, number of oil platforms, region of oil platforms, size of protected area, activation temporal fishing bans, give oil subsidies to fishers, size of boat and radio of restricted area around platforms.
 ** Input Data
+*** Does the model use input from external sources such as data files or other models to represent processes that change over time?
+No.
 ** Submodels
+*** What, in detail, are the submodels that represent the processes listed in "Process overview and scheduling"?
+Se next section.
+*** What are the model parameters, their dimensions and reference values?
+Se Table X.
+*** How were submodels designed of chosen, and how were they parameterized and then tested?
+Se next section.
+* Submodels
 
-* Submodels 
+* References
+#+print_bibliography:

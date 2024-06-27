@@ -23,9 +23,9 @@ patches-own [
   ;; tortugas
   vecinos_derecha          ;; agentset (patches): las 3 celdas a la derecha de una
   vecinos_izquierda        ;; agentset (patches): las 3 celdas a la izquierda de una
-  
+ 
   ;; pesca
-  vecindad_moore_radio
+  vecindad_moore_radio     ;;
   
   ;; visualizacion
   num_zona                 ;; number: identificador del número de vecindad de zonificación al que pertenece

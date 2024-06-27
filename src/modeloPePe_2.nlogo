@@ -86,6 +86,7 @@ to EJECUTAR
       actualizar_estado_economico
       reset_registros_mensuales_embarcacion
     ]
+    registros_promedios_mensuales
     ask puertos [ reset_registros_mensuales_puerto  ]
     ask plataformas [ actualizar_estado_plataformas ]
     reset_registros_mensuales_hidrocarburo
@@ -119,13 +120,13 @@ to EJECUTAR
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-315
-60
-834
-495
+320
+65
+832
+494
 -1
 -1
-14.2
+14.0
 1
 10
 1
@@ -180,14 +181,14 @@ NIL
 1
 
 CHOOSER
-315
-500
-585
-545
+310
+520
+580
+565
 COLOREAR_POR
 COLOREAR_POR
 "tipo" "biomasa total" "biomasa total especie" "zonificacion" "biomasa, zonificacion y derrames" "biomasa y derrames" "hidrocarburo" "derrames"
-4
+5
 
 SLIDER
 2490
@@ -410,8 +411,8 @@ VELOCIDAD
 VELOCIDAD
 0
 100
-6.0
-1
+3.0
+0.1
 1
 km/hora
 HORIZONTAL
@@ -441,7 +442,7 @@ CAPACIDAD_MAXIMA_PUERTO_1
 1
 100
 1.0
-1
+0.1
 1
 NIL
 HORIZONTAL
@@ -520,8 +521,8 @@ SLIDER
 LITROS_POR_DISTANCIA
 LITROS_POR_DISTANCIA
 0
-5
-5.0
+10
+10.0
 0.1
 1
 NIL
@@ -536,7 +537,7 @@ LITROS_POR_HORA_PESCA
 LITROS_POR_HORA_PESCA
 0
 5
-1.0
+5.0
 0.01
 1
 NIL
@@ -548,7 +549,7 @@ INPUTBOX
 2475
 205
 Ks
-[6000 6000 6000]
+[1000 1000 1000]
 1
 0
 String
@@ -576,6 +577,7 @@ PENS
 "pen-4" 1.0 0 -7500403 true "" ";;if paso_un_dia and any? puertos with [num_puerto = 0] [plotxy dias sum [capturas_dia_puerto] of one-of puertos with [num_puerto = 0]]"
 "pen-5" 1.0 0 -4539718 true "" ";;if paso_un_dia? and any? puertos with [num_puerto = 0] [plotxy dias sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 0]]"
 "pen-7" 1.0 0 -955883 true "" ";;if member? ticks ticks_registros_mes\n;;[ plotxy dias sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 0]] "
+"pen-8" 1.0 0 -2674135 true "" "if member? ticks  [ 0 31 60 91 121 152 182 213 244 274 305 335 366 397 425 456 486 517 547 578 609 639 670 700 731 762 790 821 851 882 912 943 974 1004 1035 1065 1096 1127 1155 1186 1216 1247 1277 1308 1339 1369 1400 1430 1461 1492 1521 1552 1582 1613 1643 1674 1705 1735 1766 1796 1827 1858 1886 1917 1947 1978 2008 2039 2070 2100 2131 2161 2192 2223 2251 2282 2312 2343 2373 2404 2435 2465 2496 2526 2557 2588 2616 2647 2677 2708 2738 2769 2800 2830 2861 2891 2922 2953 2982 3013 3043 3074 3104 3135 3166 3196 3227 3257 3288 3319 3347 3378 3408 3439 3469 3500 3531 3561 3592 3622 3653 ] \n[ plotxy dias sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 0]] "
 
 PLOT
 845
@@ -646,7 +648,7 @@ INPUTBOX
 2475
 405
 Ms
-[.005 .005 .005]
+[.001 .001 .001]
 1
 0
 String
@@ -835,6 +837,7 @@ PENS
 "puerto 1" 1.0 0 -2064490 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 0] [\nifelse [horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 0]  != []\n[plotxy dias [mean horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 0]]\n[plotxy dias 0 ]]"
 "puerto 2" 1.0 0 -8630108 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 1] [\nifelse [horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 1]  != []\n[plotxy dias [mean horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 1]]\n[plotxy dias 0 ]]"
 "puerto 3" 1.0 0 -13345367 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 2] [\nifelse [horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 2]  != []\n[plotxy dias [mean horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 2]]\n[plotxy dias 0 ]]"
+"pen-3" 1.0 0 -7500403 true "" "if paso_un_dia? [ plotxy dias 8 ]"
 
 PLOT
 845
@@ -876,6 +879,7 @@ PENS
 "puerto 1" 1.0 0 -2064490 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 0] [\nifelse [horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 0]  != []\n[ plotxy dias sum [viajes_finalizados_mes_puerto] of puertos with [num_puerto = 0] / NUMERO_EMBARCACIONES ]\n[ plotxy dias 0 ]]"
 "puerto 2" 1.0 0 -8630108 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 1] [\nifelse [horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 1]  != []\n[ plotxy dias sum [viajes_finalizados_mes_puerto] of puertos with [num_puerto = 1]]\n[ plotxy dias 0 ]]"
 "puerto 3" 1.0 0 -13345367 true "" "if paso_un_mes? and \nany? puertos with [num_puerto = 2] [\nifelse [horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 2]  != []\n[ plotxy dias mean [viajes_finalizados_mes_puerto] of puertos with [num_puerto = 2]]\n[ plotxy dias 0 ]]"
+"pen-3" 1.0 0 -7500403 true "" "if paso_un_dia? [ plotxy dias 15 ]"
 
 SLIDER
 1990
@@ -1044,10 +1048,10 @@ $
 HORIZONTAL
 
 BUTTON
-585
-500
-715
-545
+580
+520
+710
+565
 NIL
 colorear_celdas
 NIL
@@ -1069,7 +1073,7 @@ SUBSIDIO_MENSUAL_GASOLINA
 SUBSIDIO_MENSUAL_GASOLINA
 0
 20000
-20000.0
+0.0
 100
 1
 $/embarcacion
@@ -1084,7 +1088,7 @@ NUMERO_DE_PLATAFORMAS
 NUMERO_DE_PLATAFORMAS
 0
 30
-30.0
+10.0
 1
 1
 plataformas
@@ -1109,7 +1113,7 @@ MAX_PROB_OCURRENCIA_DERRAME
 MAX_PROB_OCURRENCIA_DERRAME
 0
 1
-0.04
+0.01
 0.001
 1
 NIL
@@ -1217,7 +1221,7 @@ PROB_MORTALIDAD_TORTUGA_POR_PESCA
 PROB_MORTALIDAD_TORTUGA_POR_PESCA
 0
 0.1
-0.008
+0.01
 0.001
 1
 NIL
@@ -1494,7 +1498,7 @@ INPUTBOX
 2945
 440
 PRECIOS_KILO_BIOMASA
-[5 5 5 ]
+[50 20 20 ]
 1
 0
 String
@@ -1558,7 +1562,7 @@ MIN_PROB_OCURRENCIA_DERRAME
 MIN_PROB_OCURRENCIA_DERRAME
 0
 1
-0.01
+0.005
 0.001
 1
 NIL
@@ -1696,7 +1700,7 @@ MONITOR
 1075
 105
 captura
-captura_acumulada / count embarcaciones
+(word (round captura_prom_ultimo_mes) \" ton\")
 0
 1
 11
@@ -1707,7 +1711,7 @@ MONITOR
 1145
 105
 ganancia
-ganancia_acumulada / count embarcaciones
+(word \"$ \" round ganancia_prom_ultimo_mes)
 0
 1
 11
@@ -1718,15 +1722,15 @@ MONITOR
 1220
 105
 gasto gasolina
-gasto_gasolina_acumulada / count embarcaciones
+(word \"$ \" round gasto_gasolina_prom_ultimo_mes)
 0
 1
 11
 
 MONITOR
-1305
+1450
 60
-1385
+1530
 105
 biomasa
 sum [sum biomasas] of patches
@@ -1735,9 +1739,9 @@ sum [sum biomasas] of patches
 11
 
 MONITOR
-1385
+1530
 60
-1465
+1610
 105
 tortugas
 count tortugas
@@ -1913,8 +1917,8 @@ VELOCIDAD_BUQUES
 VELOCIDAD_BUQUES
 0
 10
-0.5
-0.1
+0.48
+0.01
 1
 NIL
 HORIZONTAL
@@ -1925,7 +1929,7 @@ INPUTBOX
 1815
 480
 ANOS_PRUEBA
-1.0
+10.0
 1
 0
 Number
@@ -1939,7 +1943,7 @@ ANCHO_ZONA_PROTEGIDA
 ANCHO_ZONA_PROTEGIDA
 0
 17
-0.0
+10.0
 1
 1
 pixeles
@@ -1954,7 +1958,7 @@ LARGO_ZONA_PROTEGIDA
 LARGO_ZONA_PROTEGIDA
 0
 35
-0.0
+23.0
 1
 1
 pixeles
@@ -1990,7 +1994,7 @@ HORAS_DESCANSAR_PUERTO_1
 HORAS_DESCANSAR_PUERTO_1
 0
 300
-33.0
+32.0
 1
 1
 NIL
@@ -2152,7 +2156,7 @@ SWITCH
 548
 MOSTRAR_MENSAJES?
 MOSTRAR_MENSAJES?
-1
+0
 1
 -1000
 
@@ -2370,12 +2374,34 @@ NIL
 HORIZONTAL
 
 MONITOR
-1220
+1280
 60
-1300
+1360
 105
 horas en mar
-horas_en_mar_acumulada / count embarcaciones
+horas_en_mar_prom_ultimo_mes
+2
+1
+11
+
+MONITOR
+1220
+60
+1282
+105
+distancia
+(word precision distancia_recorrida_prom_ultimo_mes 2 \" km\")
+0
+1
+11
+
+MONITOR
+1360
+60
+1450
+105
+numero viajes promedio
+precision viajes_prom_ultimo_mes 2
 2
 1
 11
@@ -3405,7 +3431,8 @@ NetLogo 6.4.0
   <experiment name="calibracion_pesca_03" repetitions="30" runMetricsEveryStep="false">
     <setup>INICIALIZAR</setup>
     <go>EJECUTAR</go>
-    <timeLimit steps="3654"/>
+    <timeLimit steps="3653"/>
+    <metric>fecha</metric>
     <metric>sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 0]</metric>
     <metric>([sum distancias_recorridas_mes_puerto] of one-of puertos with [num_puerto = 0] *  longitud_celda) / NUMERO_EMBARCACIONES</metric>
     <metric>[sum ganancias_mes_puerto] of one-of puertos with [num_puerto = 0]</metric>
@@ -3432,7 +3459,7 @@ NetLogo 6.4.0
     <metric>ganancia_acumulada</metric>
     <metric>gasto_gasolina_acumulada</metric>
     <metric>horas_en_mar_acumulada</metric>
-    <runMetricsCondition>member? ticks  [ 1 32 61 92 122 153 183 214 245 275 306 336 367 398 426 457 487 518 548 579 610 640 671 701 732 763 791 822 852 883 913 944 975 1005 1036 1066 1097 1128 1156 1187 1217 1248 1278 1309 1340 1370 1401 1431 1462 1493 1522 1553 1583 1614 1644 1675 1706 1736 1767 1797 1828 1859 1887 1918 1948 1979 2009 2040 2071 2101 2132 2162 2193 2224 2252 2283 2313 2344 2374 2405 2436 2466 2497 2527 2558 2589 2617 2648 2678 2709 2739 2770 2801 2831 2862 2892 2923 2954 2983 3014 3044 3075 3105 3136 3167 3197 3228 3258 3289 3320 3348 3379 3409 3440 3470 3501 3532 3562 3593 3623 3654 ]</runMetricsCondition>
+    <runMetricsCondition>member? ticks   [ 0 31 60 91 121 152 182 213 244 274 305 335 366 397 425 456 486 517 547 578 609 639 670 700 731 762 790 821 851 882 912 943 974 1004 1035 1065 1096 1127 1155 1186 1216 1247 1277 1308 1339 1369 1400 1430 1461 1492 1521 1552 1582 1613 1643 1674 1705 1735 1766 1796 1827 1858 1886 1917 1947 1978 2008 2039 2070 2100 2131 2161 2192 2223 2251 2282 2312 2343 2373 2404 2435 2465 2496 2526 2557 2588 2616 2647 2677 2708 2738 2769 2800 2830 2861 2891 2922 2953 2982 3013 3043 3074 3104 3135 3166 3196 3227 3257 3288 3319 3347 3378 3408 3439 3469 3500 3531 3561 3592 3622 3653 ]</runMetricsCondition>
     <enumeratedValueSet variable="RONDA">
       <value value="&quot;NA&quot;"/>
     </enumeratedValueSet>

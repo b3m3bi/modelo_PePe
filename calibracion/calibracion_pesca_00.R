@@ -25,7 +25,10 @@ ticks_seq <- (dias_desde_inicio - 1) * (24 / horas_iteracion)
 resultado <- data.frame(fecha= fechas_mensuales, dia=dias_desde_inicio, ticks=ticks_seq)
 print(resultado)
 
+## dias en los que se deben hacer los registros
 paste(" [", paste(dias_desde_inicio, collapse=" "), "] ")
+## ticks en los que se deben hacer los registros
+paste(" [", paste(ticks_seq, collapse=" "), "] ")
 
 library(ggplot2)
 
@@ -51,14 +54,18 @@ outputs_names <- c(
     "num_derrames",
     "produccion_mes_hidrocarburo",
     "produccion_total_hidrocarburo",
-    "ganancia_mes_hidrocarburo"
+    "ganancia_mes_hidrocarburo",
+    "captura_acumulada",
+    "ganancia_acumulada",
+    "gasto_gasolina_acumulada",
+    "horas_en_mar_acumulada"
 )
 
-filename <- "modeloPePe_2 calibracion_pesca_02-table.csv"
+filename <- "modeloPePe_2 calibracion_pesca_03-table.csv"
 
 data <- read.csv(paste("./calibracion/output/", filename, sep=""), skip = 6) #, col.names= col_names )
 
-col_names <- c(names(data)[1:18], "dia", outputs_names)
+col_names <- c(names(data)[1:18], "dia", "logdate", outputs_names)
 names(data) <- col_names
 
 fecha_inicio <- as.Date("2024-01-01")
@@ -75,17 +82,18 @@ data$fecha <- fecha_inicio + data$dia
 ##     geom_point() +
 ##     facet_grid(vars(VELOCIDAD), vars(Ks))
 
-agg <- aggregate(do.call(cbind, data[outputs_names]) ~ dia + fecha + VELOCIDAD + HORAS_DESCANSAR_PUERTO_1 + Ks + HORAS_MAXIMAS_EN_MAR_PUERTO_1 + PRECIOS_KILO_BIOMASA, data =data, FUN = mean)
+agg <- aggregate(do.call(cbind, data[outputs_names]) ~ dia + fecha + VELOCIDAD + HORAS_DESCANSAR_PUERTO_1 + Ks + Ms + HORAS_MAXIMAS_EN_MAR_PUERTO_1, data =data, FUN = mean)
 
 agg$horas_mar_viaje_prom <- agg$horas_mar_mes_prom / (agg$viajes_mes / 300)
-## agg$viajes_semana_prom <- agg$viajes_mes * (1/300) 
+agg$viajes_semana_prom <- agg$viajes_mes * (1/300) / 4
+agg$dist_viaje_prom <- agg$distancia_recorrida_mes_prom / (agg$viajes_mes / 300)
 
-ggplot(agg,
+ggplot(agg[agg$HORAS_MAXIMAS_EN_MAR_PUERTO_1 == 8,],
        aes(x = fecha,
-           y = viajes_mes,
-           shape = as.factor(HORAS_DESCANSAR_PUERTO_1),
-           color = as.factor(HORAS_MAXIMAS_EN_MAR_PUERTO_1)
+           y = viajes_semana_prom,
+           shape = as.factor(VELOCIDAD),
+           color = as.factor(HORAS_DESCANSAR_PUERTO_1)
            )
        ) +
     geom_point() +
-    facet_grid(vars(VELOCIDAD), vars(Ks))
+    facet_grid(vars(Ms), vars(Ks))
