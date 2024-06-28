@@ -140,6 +140,50 @@ Se Table X.
 *** How were submodels designed of chosen, and how were they parameterized and then tested?
 Se next section.
 * Submodels
+** Ecology submodel
 
+This submodel is based on the ecology submodel of [cite//b:@bailey2019]. Each patch registers the biomass of fishing species. Biomass disperses daily and grows annualy. Disperion in each patch is simulated by simple diffusion following the next equation:
+
+\[ b_{i,j,t+1} =   b_{i,j,t} +  \sum_k M_i \cdot (b_{i,j,t} - b_{i,k,t}) \]
+
+where \(b_{i,j,t}\) is the biomass of species \(i\) in patch \(j\) during time \(t\), \(M_i\) is the dispersion rate of species \(i\), and \(k\) are the von Neumann neighbors of the patch \(j\) that are also habitat of species \(i\). In the base model we define 3 different species with non overlaping habitats corresponding to 3 different fishing regions (coasline, platforms, deep waters).
+
+Growth is simulated with a simple logistic equation:
+
+\[ b_{i,j,t+1} = b_{i,j,t} + b_{i,j,t} \cdot R_i \cdot \left( 1 - \frac{b_{i,j,t}}{K_i} \right)  \]
+
+where \(R_i\) is the intrinsic growth rate of species \(i\) and \(K_i\) is the carring capacity of species \(i\), which are the same for all habitat patches of the especies. To account for an extra effect due to "perturbation during reproducing period" and not respecting "van periods" we suposed that \(R_i\) is related linearly to the active fishers during reproducing day:
+
+\(R_i = (\frac{R_{\min,i} - R_{\max,i}}{500}) \cdot n_i + R_{\max, i} \)
+
+where \(R_{\min, i}\) and \(R_{\max, i}\) are the minimum and maximum intrinsic growuth rates of species \(i\), and  \(n_i\) is the number of active fishing boats of species \(i\) during the reproduction day. In this expresion when all fishers respect a temporal ban during the reproduction period \(R_i\) is at its maximum (\(R_{\max,i}\)), meanwhile when 500 fishers don't respect ban period \(R_i\) is at its minimum (\(R_{\min,i}\)). Growth ocurrs one a year at a custom date for each species. 
+
+** Fishing submodel
+
+This submodel is based on the fishing submodel of [cite//b:@bailey2019]. Fishers have an activity state. During each model iteration (day) fishers can carry out multiple activities: "rest", "plan", "move", "fish" and "land". Figure X describes the change in activity states.
+
+Each day a boat agents have 24 hours to carry the next activities: rest at port, plan trip, move/navigate, fish and land. When there are no fishing bans boats rest at port for a fixed amount of time (HORAS_DESCANSAR). If there are fishing bans boats stay inactive at port until the ban period ends.
+
+When the resting time ends boats plan their trip. Boats choose their starting trip destination with the Explore-Exploit-Imitate algorithm [cite:@bailey2019]. With a probability \epsilon (EPSILON) boats explore a new site. Posible new sites don't include restricted or protected patches. The new site can be a site nearby the actual prefared fishing site (in the moore neighborhod of a specified radius RADIO_EXPLORAR) or with a fixed probability (PROB_EXP_REGION) a site in any place of the fishing region. This is a modification from [cite:@bailey2019] model to improve gameplay and avoid fishers from geting stuck at the corners of the world and collapse, this modification allows fishers to found non used areas more efficiently in conditions close to the depetion of the resource. When boats don't explore a new site they can exploit or imitate. If one of their friends got a greater income than them in their last trip they imitate them and visit their friend's best site. When their last income wast greater than their's friends they exploit their own best last fishing site. We suppose that planning cost no time to boat agents.
+
+Boat agents move by following the A* pathfinder algorithm. This algorithm computes the route of boats follow considering that they cannot navigate through restricted areas. Boats move with a velocity (VELOCIDAD) in a continius way (eulers distance) through the patches. The minimum movement time cost is 1 hour.
+
+When boat agents arrive to a fishing site they fish a species acording to their gear (ESPECIES_PESCA). In the base model boats only fish a single species, they capture a fixed proportion of the available biomass in the patch (CAPTURABILIDAD; in the extende model when boats fish more than one species the capture is proportional to the biomass of species at that patch). Boats can only hold a fixed amount of catch (CAPACIDAD_MAXIMA; when they capture more than the maximum capacity they return the excess). Each deployment of fishing gear is suposed to cost the boats 1 hour. After fishing boats decide what to do next depending on their catches and time pased on sea. If a boat is full, then it plans the retrn trip to the port. If the boat isn't full but a maimum amount of time on the sea has passed (TIEMPO_MAXIMO_EN_MAR) then it plans the return trip to the port. Finally, if the boat isn't full and it hasn't passed sufficient time at the sea it plans where to continue the trip. The trip is continued by choosing randomly a neighboring patch at a fixed radio (Moore neighborhood).
+
+When a boat ends its trip at the port it lands the catches, sells them and calculates its income based on a fixed price and costos of gas:
+
+\begin{align*}
+\text{INCOME} = (\text{CATCH} \times \text{PRICE OF BIOMASS})\\
+- (\text{GAS PRICE} \times \text{LITTERS PER DISTANCE} \times \text{PATCH LENGTH} \times \text{DISTANCE TRAVELED}) \\
+- (\text{LITTERS PER FISHING HOUR} \times \text{NUMER OF FISHING SITES VISITED}) 
+\end{align*}
+
+After landing and selling the catch, boats rest at port, to start a new trip.
+
+** Turtles submodel
+
+
+
+** Oil platforms submodel
 * References
 #+print_bibliography:

@@ -86,14 +86,126 @@ agg <- aggregate(do.call(cbind, data[outputs_names]) ~ dia + fecha + VELOCIDAD +
 
 agg$horas_mar_viaje_prom <- agg$horas_mar_mes_prom / (agg$viajes_mes / 300)
 agg$viajes_semana_prom <- agg$viajes_mes * (1/300) / 4
+agg$viajes_mes_prom <- agg$viajes_mes * (1/300)
 agg$dist_viaje_prom <- agg$distancia_recorrida_mes_prom / (agg$viajes_mes / 300)
 
-ggplot(agg[agg$HORAS_MAXIMAS_EN_MAR_PUERTO_1 == 8,],
-       aes(x = fecha,
-           y = viajes_semana_prom,
-           shape = as.factor(VELOCIDAD),
-           color = as.factor(HORAS_DESCANSAR_PUERTO_1)
-           )
-       ) +
+
+ref <- as.data.frame(t(data.frame(
+    valores=c(300,10,1000,8,1500,15,7500),
+    row.names=c("captura", "distancia","ganancia","horas","gasolina","viajes","salario"))))
+
+
+## la captura por viaje * 15 viajes al mes
+fig_captura <-
+    ggplot(agg[agg$HORAS_MAXIMAS_EN_MAR_PUERTO_1 == 8,],
+           aes(x = fecha,
+               y = (capturas_mes / viajes_mes)* 1000,
+               shape = as.factor(VELOCIDAD),
+               color = as.factor(HORAS_DESCANSAR_PUERTO_1))) +
     geom_point() +
+    geom_hline(yintercept=ref$captura, linetype="dashed") +
+    labs(x = "fecha",
+         y = "captura promedio al mes (kg)",
+         shape = "velocidad",
+         color = "horas descansar") +
     facet_grid(vars(Ms), vars(Ks))
+fig_captura
+ggsave("fig_captura.png")
+
+
+fig_viajes <-
+    ggplot(agg[agg$HORAS_MAXIMAS_EN_MAR_PUERTO_1 == 8,],
+           aes(x = fecha,
+               y = viajes_mes_prom,
+               shape = as.factor(VELOCIDAD),
+               color = as.factor(HORAS_DESCANSAR_PUERTO_1))) +
+    geom_point() +
+    geom_hline(yintercept=ref$viajes, linetype="dashed") +
+    labs(x = "fecha",
+         y = "número de viajes promedio al mes",
+         shape = "velocidad",
+         color = "horas descansar") +
+    facet_grid(vars(Ms), vars(Ks))
+fig_viajes
+ggsave("fig_viajes.png")
+
+fig_distancia <-
+    ggplot(agg[agg$HORAS_MAXIMAS_EN_MAR_PUERTO_1 == 8,],
+           aes(x = fecha,
+               y = distancia_recorrida_mes_prom / viajes_mes_prom,
+               shape = as.factor(VELOCIDAD),
+               color = as.factor(HORAS_DESCANSAR_PUERTO_1))) +
+    geom_point() +
+    geom_hline(yintercept=ref$viajes, linetype="dashed") +
+    labs(x = "fecha",
+         y = "distancia recorrida mes prom (km)",
+         shape = "velocidad",
+         color = "horas descansar") +
+    facet_grid(vars(Ms), vars(Ks))
+fig_distancia
+ggsave("fig_distancia.png")
+
+## las horas mar mes prom son las horas totales promedio de un pescador al mes
+fig_duracion <-
+    ggplot(agg[agg$HORAS_MAXIMAS_EN_MAR_PUERTO_1 == 8,],
+           aes(x = fecha,
+               y = horas_mar_mes_prom / viajes_mes_prom,
+               shape = as.factor(VELOCIDAD),
+               color = as.factor(HORAS_DESCANSAR_PUERTO_1))) +
+    geom_point() +
+    geom_hline(yintercept=ref$horas, linetype="dashed") +
+    labs(x = "fecha",
+         y = "duracion viaje (horas)",
+         shape = "velocidad",
+         color = "horas descansar") +
+    facet_grid(vars(Ms), vars(Ks))
+fig_duracion
+ggsave("fig_duracion.png")
+
+fig_ganancia <-
+    ggplot(agg[agg$HORAS_MAXIMAS_EN_MAR_PUERTO_1 == 8,],
+           aes(x = fecha,
+               y = ganancias_mes / viajes_mes,
+               shape = as.factor(VELOCIDAD),
+               color = as.factor(HORAS_DESCANSAR_PUERTO_1))) +
+    geom_point() +
+    geom_hline(yintercept=ref$ganancia, linetype="dashed") +
+    labs(x = "fecha",
+         y = "ganancia por viaje (MXN)",
+         shape = "velocidad",
+         color = "horas descansar") +
+    facet_grid(vars(Ms), vars(Ks))
+fig_ganancia
+ggsave("fig_ganancia.png")
+
+fig_gas <-
+    ggplot(agg[agg$HORAS_MAXIMAS_EN_MAR_PUERTO_1 == 8,],
+           aes(x = fecha,
+               y = gasto_gas_mes_prom / viajes_mes_prom,
+               shape = as.factor(VELOCIDAD),
+               color = as.factor(HORAS_DESCANSAR_PUERTO_1))) +
+    geom_point() +
+    geom_hline(yintercept=ref$gasolina, linetype="dashed") +
+    labs(x = "fecha",
+         y = "gasto en gasolina por viaje promedio (MXN)",
+         shape = "velocidad",
+         color = "horas descansar") +
+    facet_grid(vars(Ms), vars(Ks))
+fig_gas
+ggsave("fig_gas.png")
+
+fig_salario <-
+    ggplot(agg[agg$HORAS_MAXIMAS_EN_MAR_PUERTO_1 == 8,],
+           aes(x = fecha,
+               y = salario_mes_prom,
+               shape = as.factor(VELOCIDAD),
+               color = as.factor(HORAS_DESCANSAR_PUERTO_1))) +
+    geom_point() +
+    geom_hline(yintercept=ref$salario, linetype="dashed") +
+    labs(x = "fecha",
+         y = "salario promedio mensual (MXN)",
+         shape = "velocidad",
+         color = "horas descansar") +
+    facet_grid(vars(Ms), vars(Ks))
+fig_salario
+ggsave("fig_salario.png")
