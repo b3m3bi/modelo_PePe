@@ -1,0 +1,338 @@
+% Created 2024-07-03 Wed 18:23
+% Intended LaTeX compiler: pdflatex
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{wrapfig}
+\usepackage{rotating}
+\usepackage[normalem]{ulem}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{capt-of}
+\usepackage{hyperref}
+\author{Luis Guillermo García Jácome}
+\date{\today}
+\title{ODD+D protocol}
+\hypersetup{
+ pdfauthor={Luis Guillermo García Jácome},
+ pdftitle={ODD+D protocol},
+ pdfkeywords={},
+ pdfsubject={},
+ pdfcreator={Emacs 29.3 (Org mode 9.6.15)}, 
+ pdflang={English}}
+\begin{document}
+
+\maketitle
+\tableofcontents
+
+
+\section{Overview}
+\label{sec:orga0e63cd}
+\subsection{Purpose}
+\label{sec:orgafebede}
+\subsubsection{What is the purpose of the study?}
+\label{sec:orgd22783f}
+To understand the possible consequences of the management strategies that impact on the distribution of the shared space between the fishing industry, oil industry and conservation in the Bank of Campeche. To build  a system of agreements towards the sustainable use of the sheared sea-space, by the use of serious games.
+\subsubsection{For whom is the model designed?}
+\label{sec:org279b7c9}
+For different local stakeholders participating in workshops and interested in the usage and management of the sea landscape (fisheries leaders, fishers, conservation agencies representatives, oil industry representatives, government representatives).
+\subsection{Entities, state variables and scales}
+\label{sec:orga67d89f}
+\subsubsection{What kinds of entities are in the model?}
+\label{sec:org2cc4e60}
+\begin{itemize}
+\item one human entity: boats
+\item two infrastructure entity: oil platforms, oil tankers, ports
+\item one biological entity: turtles
+\item one bio-physical entity: sea patches
+\end{itemize}
+\subsubsection{By what attributes (i.e., state variables and parameters) are these  entities characterized?}
+\label{sec:orgf51fbdd}
+\begin{itemize}
+\item Boats: a port where it lands, a fishing region, an state describing the action it carries out at each moment (resting, planning, moving, fishing, landing), a preferred fishing patch, a catch and income, a capturability and maximum vessel capacity, a crew size, an economic state (viable, crisis, bankruptcy).
+\item Oil platforms: a daily production and income.
+\item Oil tankers: a platform where it loads and a port where it lands
+\item Turtles: a state describing if it is migrating or feeding.
+\item Sea patches: a type (sea, land), the biomass of the fishing species, an oil concentration, a zoning type (restricted, protected, free), a region id representing different fishing regions, a spilled state.
+\end{itemize}
+\subsubsection{What are the exogenous factors/drivers of the model?}
+\label{sec:org0eba9fd}
+The catch and oil prices are fixed. The probability of an oil spill probabilities is fixed. 
+\subsubsection{If applicable, how is space included in the model?}
+\label{sec:org24f53b7}
+Space is included implicitly, each patch represents a spatial unit, ports and oil platforms have a fixed position and boats, oil tankers, turtles and biomass move in the space.
+\subsubsection{What are the temporal and spatial resolutions and extents of the model?}
+\label{sec:orgef37932}
+Each time step represents a day. The size of the virtual world is 30 \texttimes{} 30 pixels (with 3 extra pixels at the right of the word representing land) where each individual patch represents 3 km\textsuperscript{2} representing a sea area of 8,100 km\textsuperscript{2} which corresponds to an approximate fishing area of a local community.
+\subsection{Process overview and scheduling}
+\label{sec:org112e0b9}
+\subsubsection{What entity does what, and in what order?}
+\label{sec:orgc6f1c72}
+Daily a boat has 24 hours to carry out 5 different activities: rest at port, plan next trip, move towards a destination, fish and land at port. Each activity costs time to the boat.
+Daily the biomass at a patch disperses to neighbor patches, and annually biomass at each patch regenerates.
+Daily oil platforms extract oil and oil spills can occur with certain a probability. While oil platforms are profitable oil tankers transport the production to nearest port.
+Turtles move daily to neighboring patches, and migrate and reproduce one a year.
+Output variables and game thresholds are updated and checked monthly.
+\section{Design Concepts}
+\label{sec:orgb0d1bd0}
+\subsection{Theoretical and Empirical Background}
+\label{sec:orgc09369c}
+\subsubsection{Which general concepts, theories or hypotheses are underlying the model's design at the system level or at the level(s) of the sub-model(s) (apart from the decision model)? What is the link to complexity and the purpose of the model?}
+\label{sec:org349589a}
+Biomass regenerates following a logistic equation. Biomass disperses by simple diffusion. Oil extraction follows a exponential decay limited by a maximum extraction capacity. Turtles behavior follow a general migratory pattern characteristic of the species.
+\subsubsection{On what assumptions is/are the agents' decision model(s) based?}
+\label{sec:orgaaf2dea}
+To choose where to fish boat agents follow an Explore-Exploit-Imitate dynamics (Bailey, Richard M. and Carrella, Ernesto and Axtell, Robert and Burgess, Matthew G. and Cabral, Reniel B. and Drexler, Michael and Dorsett, Chris and Madsen, Jens Koed and Merkl, Andreas and Saul, Steven, 2019), a modification of the epsilon-greedy algorithm of the Explore-Exploit dilemma. To choose where to continue fishing during a trip boat agents follow and \emph{ad-hoc} rule where they choose randomly a nearby patch. 
+\subsubsection{Why is/are certain decision model(s) chosen?}
+\label{sec:orgacea421}
+The decision model of the boat agents was chosen because this simple model has been previously demonstrated to reproduce some empirical observed patterns (Bailey, Richard M. and Carrella, Ernesto and Axtell, Robert and Burgess, Matthew G. and Cabral, Reniel B. and Drexler, Michael and Dorsett, Chris and Madsen, Jens Koed and Merkl, Andreas and Saul, Steven, 2019,  Carrella, Ernesto and Saul, Steven and Marshall, Kristin and Burgess, Matthew G. and Cabral, Reniel B. and Bailey, Richard M. and Dorsett, Chris and Drexler, Michael and Madsen, Jens Koed and Merkl, Andreas, 2020).
+Some main decision of the model such as the fishing region, number of fishers, oil platforms region, protected area size and fishing bans are left to the game players. The game narrative treats the players as a members of a spatial planning committee that are exposed to different scenarios. One purpose of the game is to highlight trade-offs that emerge form some management decisions of these three sectors.
+\subsubsection{If the model/sub-model (e.g., the decision model) is based on empirical data, where to the data come from?}
+\label{sec:orgb6a1bd2}
+The conceptual model is not based on empirical data. Some calibration of parameter is based on empirical data.
+\subsubsection{At which level of aggregation where the data available?}
+\label{sec:org8720dbf}
+Does not apply.
+\subsection{Individual Decision Making}
+\label{sec:orga4cac2c}
+\subsubsection{What are the subjects and objects of the decision-making? On which level of aggregation is decision-making modeled? Are multiple levels of decision making included?}
+\label{sec:org50524cc}
+Boats decide the patch where they are going to fish using the Explore-Exploit-Imitate algorithm (Bailey, Richard M. and Carrella, Ernesto and Axtell, Robert and Burgess, Matthew G. and Cabral, Reniel B. and Drexler, Michael and Dorsett, Chris and Madsen, Jens Koed and Merkl, Andreas and Saul, Steven, 2019).
+\subsubsection{What is the basic rationality behind agent decision-making in the model? Do agents pursue an explicit objective of have other success criteria?}
+\label{sec:org5fbb1b7}
+Boat agents choose where to fish based on where they or their friends have gained the most economic income in previous trips. As the income gained changes as the biomass available at a patch goes down and as boats go farther away form the port, they need to explore new sites to increase again their income. 
+\subsubsection{How do agents make their decisions?}
+\label{sec:org351de93}
+Se details at Sub-model section.
+\subsubsection{Do the agents adapt their behaviors to changing endogenous and exogenous sate variables? And if yes, how?}
+\label{sec:org04cde92}
+Yes. Boat agents choose where to fish based on the income they gain in previous trips in a site. The catches that determine the gain change as biomass availability fluctuates with competition, migration, regrowth and oil spill damage. Agents adapt this changes by exploring new fishing sites.
+\subsubsection{Do social norms or cultural values play a role in the decision-making process?}
+\label{sec:org7dcf0ae}
+No.
+\subsubsection{Do spatial aspects play a role in the decision process?}
+\label{sec:org6a43e8b}
+No. But the distance traveled influence the gain that the boat agents gain from fishing and thus the site they choose for fishing.
+\subsubsection{Do temporal aspect play a role in the decision process?}
+\label{sec:orgfbce6e8}
+Yes. Boat agents have a memory of the last place where they fished and got the best catches and the economic gain they got fishing there. 
+\subsubsection{To which extent and how is uncertainty included in the agents' decision rules?}
+\label{sec:org1876e3e}
+Given that a best fishing patch of a boat agent may change in the future given the competition with other boats, migration and population dynamics of biomass and oil spill damage, agents may choose with certain probability to explore a new patch.
+\subsection{Learning}
+\label{sec:org8b17687}
+\subsubsection{Is individual learning included in the decision process? How do individuals change their decision rules over time as consequence of their experience?}
+\label{sec:orgf7e7575}
+Yes. Explore-Exploit-Imitate is a rudimental way in which boat agents learn the best sites to fish. Agents learn to fish first in patches close to the port as the travel costs are cheaper. As biomass and income goes down they move outwards to new sites.
+\subsubsection{Is collective learning implemented in the model?}
+\label{sec:orgcadd8ad}
+Yes. Boat agents can share information with their friends about their previous best fishing site and income. When an agent identifies a friend whose income was grater than its, it imitates the best fishing site of the friend. This simple mechanism makes more quick and efficient initial the learning of all boat agents.
+\subsection{Individual Sensing}
+\label{sec:org464fd18}
+\subsubsection{What endogenous and exogenous state variables are individuals assumed to sense and consider in their decisions? Is the sensing process erroneous?}
+\label{sec:org5506c70}
+Boat agents can sens the catch, income and distance traveled (endogenous variables). 
+\subsubsection{What state variable of which other individuals can an individual perceive? Is the sensing process erroneous?}
+\label{sec:orgd19a80a}
+Boat agents can access without error the best fishing site and income of their friends.
+\subsubsection{What is the spatial scale of sensing?}
+\label{sec:orgdf548ea}
+There is no spatial sensing of boat agents.
+\subsubsection{Are the mechanisms by which agents obtain information modeled explicitly, or are individuals simply assumed to know these variables?}
+\label{sec:orgabf88f1}
+The catch and movement of boat agents is modeled explicitly, and income is calculated after them.
+\subsubsection{Are the costs for cognition and the costs for gathering information explicitly included in the model?}
+\label{sec:orgcca156c}
+No. 
+\subsection{Individual Prediction}
+\label{sec:orgd61c6fc}
+\subsubsection{Which data do the agents use to predict future conditions?}
+\label{sec:orgc4bff7b}
+Data on income gained fishing in a patch.
+\subsubsection{What internal models are agents assumed to use to estimate future conditions of consequences of their decisions?}
+\label{sec:org8e0fd9c}
+The Explore-Exploit-Imitate model (Bailey, Richard M. and Carrella, Ernesto and Axtell, Robert and Burgess, Matthew G. and Cabral, Reniel B. and Drexler, Michael and Dorsett, Chris and Madsen, Jens Koed and Merkl, Andreas and Saul, Steven, 2019).
+\subsubsection{Might agents be erroneous in the prediction process, and how is it implemented?}
+\label{sec:orgef43f58}
+Yes, as boat agent decision is based on previous trip and as biomass available in a patch changes from competition with other boats, migration and regrowth, and oil spill damage the patch on which previously they got high catches might give them bad catches in subsequent visits. 
+\subsection{Interaction}
+\label{sec:orga42aaff}
+\subsubsection{Are interactions among agents and entities assumed as direct or indirect}
+\label{sec:org8c15c97}
+Boats interact directly with other boats by sharing information. Boats interact directly with the sea patches by consuming the fishing resource (biomass). Boats and platforms interact indirectly as platforms can reduce available biomass for fishers through restricting reducing the fishing area and reducing biomass by oil spils. Turtles have a direct interaction with boats and platforms as there is a probability of death when there is a boat fishing or an oil spill in the patch where they are.
+\subsubsection{On what do the interactions depend?}
+\label{sec:orgff3e200}
+Boats interactions with other boats depend on a random network. Boats interaction with biomass depend on the distance form the port or previous sites where they have fished. Fishing restriction areas are defined at a certain Moore neighborhood from oil platforms. Oil spill extensions depend on the neighborhood of previously contaminated patches. 
+\subsubsection{If the interactions involve communication, how are such communications represented?}
+\label{sec:orgc18340a}
+When planning a new fishing trip boats can access the variable of the best fishing site of their two friends and compare it to theirs.
+\subsubsection{If a coordination network exists, how does it affect the agent behavior? Is the structure of the network imposed or emergent?}
+\label{sec:org6215c28}
+The friendship network allows boats to learn more rapidly where are the fishing sites that generate a greater income. To build the network each boat is connected to other two randomly chosen boats from the same port. 
+\subsection{Collectives}
+\label{sec:orgb94d5e0}
+\subsubsection{Do the individuals form or belong to aggregations that affect, and are affected by, the individuals? Are these aggregations imposed by the modeler or do they emerge during the simulation?}
+\label{sec:org9a52bd0}
+An aggregate fishing behavior emerges from the boat friendship network. Depending on the number of friends and boats there can be a single of multiple aggregations.
+\subsubsection{How are collectives represented?}
+\label{sec:orga38ea41}
+Boat collectives are emergent properties resulting from the Explore-Exploit-Imitate algorithm. (The model can be extended to consider more than one port, in this case the boats can only form collectives with boats of their same port).
+\subsection{Heterogeneity}
+\label{sec:orgf1151ed}
+\subsubsection{Are the agents heterogeneous? If yes which state variables and/or processes differ between the agents?}
+\label{sec:org969225b}
+In the base model with only a single port agents are homogeneous. In the extended model with more than one port agents differ in their fishing parameters (fishing region, capacity, catchability, resting times, etc).
+\subsubsection{Are the agents heterogeneous in their decision-making? If yes, which decision models or decision objects differ between the agents?}
+\label{sec:orged4926b}
+Agents are homogeneous in their decision-making.
+\subsection{Stochasticity}
+\label{sec:orgff836cb}
+\subsubsection{What processes (including initialization) are modeled by assuming they are random or partly random?}
+\label{sec:orgd748380}
+The positioning of oil platforms in the landscape is partly random (we restrict non-playable landscapes where there are inaccessible fishing patches). The friendship network of the boats is random, each boat links to two other randomly chosen boats that land in the same port as them. Starting preferred fishing site of boats is chosen randomly. Explore-Exploit-Imitate algorithm has an stochastic component as boats explore a new fishing sites with certain probability. Oil spills occur according to a given probability and extend following a stochastic percolation model. Turtles initial position is random in their feeding region. Turtles move randomly to their neighbors.
+\subsection{Observation}
+\label{sec:org2344ec2}
+\subsubsection{What data are collected from the ABM for testing, understanding and analyzing it, and how and when are they collected?}
+\label{sec:org55dbc45}
+To analyze the fishing sub-model we collect data of: catches, fishing income, distance traveled, trip duration, gas expense, average salary and number of viable/crisis/bankrupt boats. This data is collected monthly before the re-initialization of the registers.
+To analyze the oil sub-model we collect data of: total production, aggregate production and monthly total income.
+To analyze the ecological sub-models we collect daily data of: biomass of each species and number of turtles. 
+\subsubsection{What key results, outputs of characteristics of the model are emerging from the individuals? (Emergence)}
+\label{sec:org5f1b6e1}
+The model captures the formation of fishing fronts, also captures classical bio-economic results (reduction of catches with increasing number of boats, increase fishing effort with as resource depletes)
+\section{Details}
+\label{sec:org3080d2e}
+\subsection{Implementation Details}
+\label{sec:org0890f17}
+\subsubsection{How has the model been implemented?}
+\label{sec:org82ba339}
+The model was implemented in NetLogo 6.4.0
+\subsubsection{Is the model accessible and if so where?}
+\label{sec:orgc490776}
+Model is available at the \href{https://github.com/b3m3bi/modelo\_PePe}{github repository}. It will be uploaded to comses.
+\subsection{Initialization}
+\label{sec:orgf27d41d}
+\subsubsection{What is the initial state of the model world, i.e., at time t=0 of a simulation run?}
+\label{sec:orgd58d85f}
+Each patch is initialized with its maximum carrying capacity and with the maximal concentration of oil. There are 3 different species (shrimp, mackerel, huachinango) corresponding to 3 different fishing regions (coastline, platforms, deep water). All boats start in resting state and with an income of \$7500 MXN. Oil platform position is randomly chosen in a specified area (same options as fishing regions). Oil tankers start at their platform. Turtles start at a random position in their feeding area (that corresponds to the deep water region). 
+\subsubsection{Is initialization always the same, or is it allowed to vary among simulations?}
+\label{sec:orgf8e2ce0}
+Each simulation generates a new landscape with different position of the oil platforms in the indicated region. All non-playable landscapes where there is a patch not accessible to boats, due to the restriction area around platforms, are ignored.
+\subsubsection{Are the initial values chosen arbitrarily of based on data?}
+\label{sec:org85af68c}
+Some initial values of parameters are based on data. Others where obtained through a calibration process based on empirical data. An other parameters where chosen arbitrarily for increasing the attractiveness and game play of the model.
+A player can control the initial values of: number of boats, fishing region, number of oil platforms, region of oil platforms, size of protected area, activation temporal fishing bans, give oil subsidies to fishers, size of boat and radio of restricted area around platforms.
+\subsection{Input Data}
+\label{sec:org2667c4e}
+\subsubsection{Does the model use input from external sources such as data files or other models to represent processes that change over time?}
+\label{sec:org25639bf}
+No.
+\subsection{Sub-models}
+\label{sec:org5361263}
+\subsubsection{What, in detail, are the sub-models that represent the processes listed in "Process overview and scheduling"?}
+\label{sec:org4325e9b}
+Se next section.
+\subsubsection{What are the model parameters, their dimensions and reference values?}
+\label{sec:orgdbf181f}
+Se Table X.
+\subsubsection{How were sub-models designed of chosen, and how were they parameterized and then tested?}
+\label{sec:org06a845a}
+Se next section.
+\section{Sub-models}
+\label{sec:orgfc7b539}
+\subsection{Ecology sub-model}
+\label{sec:org35e64be}
+
+This sub model is based on the ecology sub-model of Bailey, Richard M. and Carrella, Ernesto and Axtell, Robert and Burgess, Matthew G. and Cabral, Reniel B. and Drexler, Michael and Dorsett, Chris and Madsen, Jens Koed and Merkl, Andreas and Saul, Steven, 2019. Each patch registers the biomass of fishing species. Biomass disperses daily and grows annually. Dispersion in each patch is simulated by simple diffusion following the next equation:
+
+\[ b_{i,j,t+1} =   b_{i,j,t} +  \sum_k M_i \cdot (b_{i,j,t} - b_{i,k,t}) \]
+
+where \(b_{i,j,t}\) is the biomass of species \(i\) in patch \(j\) during time \(t\), \(M_i\) is the dispersion rate of species \(i\), and \(k\) are the von Neumann neighbors of the patch \(j\) that are also habitat of species \(i\). In the base model we define 3 different species with non overlapping habitats corresponding to 3 different fishing regions (coastline, platforms, deep waters).
+
+Growth is simulated with a simple logistic equation:
+
+\[ b_{i,j,t+1} = b_{i,j,t} + b_{i,j,t} \cdot R_i \cdot \left( 1 - \frac{b_{i,j,t}}{K_i} \right)  \]
+
+where \(R_i\) is the intrinsic growth rate of species \(i\) and \(K_i\) is the carrying capacity of species \(i\), which are the same for all habitat patches of the species. To account for an extra effect due to "perturbation during reproducing period" and not respecting "van periods" we supposed that \(R_i\) is related linearly to the active fishers during reproducing day:
+
+\(R_i = (\frac{R_{\min,i} - R_{\max,i}}{500}) \cdot n_i + R_{\max, i}\)
+
+where \(R_{\min, i}\) and \(R_{\max, i}\) are the minimum and maximum intrinsic growth rates of species \(i\), and  \(n_i\) is the number of active fishing boats of species \(i\) during the reproduction day. In this expression when all fishers respect a temporal ban during the reproduction period \(R_i\) is at its maximum (\(R_{\max,i}\)), meanwhile when 500 fishers don't respect ban period \(R_i\) is at its minimum (\(R_{\min,i}\)). Growth occurs one a year at a custom date for each species. 
+
+\subsection{Fishing sub-model}
+\label{sec:org9393baf}
+
+This sub-model is based on the fishing sub-model of Bailey, Richard M. and Carrella, Ernesto and Axtell, Robert and Burgess, Matthew G. and Cabral, Reniel B. and Drexler, Michael and Dorsett, Chris and Madsen, Jens Koed and Merkl, Andreas and Saul, Steven, 2019. Fishers have an activity state. During each model iteration (day) fishers can carry out multiple activities: "rest", "plan", "move", "fish" and "land". Figure X describes the change in activity states.
+
+Each day a boat agents have 24 hours to carry the next activities: rest at port, plan trip, move/navigate, fish and land. When there are no fishing bans boats rest at port for a fixed amount of time (HORAS\textsubscript{DESCANSAR}). If there are fishing bans boats stay inactive at port until the ban period ends.
+
+When the resting time ends boats plan their trip. Boats choose their starting trip destination with the Explore-Exploit-Imitate algorithm (Bailey, Richard M. and Carrella, Ernesto and Axtell, Robert and Burgess, Matthew G. and Cabral, Reniel B. and Drexler, Michael and Dorsett, Chris and Madsen, Jens Koed and Merkl, Andreas and Saul, Steven, 2019). With a probability \(\epsilon\) (EPSILON) boats explore a new site. Possible new sites don't include restricted or protected patches. The new site can be a site nearby the actual preferred fishing site (in the Moore neighborhood of a specified radius RADIO\textsubscript{EXPLORAR}) or with a fixed probability (PROB\textsubscript{EXP}\textsubscript{REGION}) a site in any place of the fishing region. This is a modification from (Bailey, Richard M. and Carrella, Ernesto and Axtell, Robert and Burgess, Matthew G. and Cabral, Reniel B. and Drexler, Michael and Dorsett, Chris and Madsen, Jens Koed and Merkl, Andreas and Saul, Steven, 2019) model to improve game play and avoid fishers from getting stuck at the corners of the world and collapse, this modification allows fishers to found non used areas more efficiently in conditions close to the depletion of the resource. When boats don't explore a new site they can exploit or imitate. If one of their friends got a greater income than them in their last trip they imitate them and visit their friend's best site. When their last income wast greater than their's friends they exploit their own best last fishing site. We suppose that planning cost no time to boat agents.
+
+Boat agents move by following the A* pathfinder algorithm. This algorithm computes the route of boats follow considering that they cannot navigate through restricted areas. Boats move with a velocity (VELOCIDAD) in a continuous way (Euler's distance) through the patches. The minimum movement time cost is 1 hour.
+
+When boat agents arrive to a fishing site they fish a species according to their gear (ESPECIES\textsubscript{PESCA}). In the base model boats only fish a single species, they capture a fixed proportion of the available biomass in the patch (CAPTURABILIDAD; in the extended model when boats fish more than one species the capture is proportional to the biomass of species at that patch). Boats can only hold a fixed amount of catch (CAPACIDAD\textsubscript{MAXIMA}; when they capture more than the maximum capacity they return the excess). Each deployment of fishing gear is supposed to cost the boats 1 hour. After fishing boats decide what to do next depending on their catches and time passed on sea. If a boat is full, then it plans the return trip to the port. If the boat isn't full but a maximum amount of time on the sea has passed (TIEMPO\textsubscript{MAXIMO}\textsubscript{EN}\textsubscript{MAR}) then it plans the return trip to the port. Finally, if the boat isn't full and it hasn't passed sufficient time at the sea it plans where to continue the trip. The trip is continued by choosing randomly a neighboring patch at a fixed radio (Moore neighborhood).
+
+When a boat ends its trip at the port it lands the catches, sells them and calculates its income based on a fixed price and costs of gas:
+
+\begin{align*}
+\text{INCOME}_{\text{fishing}} = (\text{CATCH} \times \text{PRICE OF BIOMASS})\\
+- (\text{GAS PRICE} \times \text{LITTERS PER DISTANCE} \times \text{PATCH LENGTH} \times \text{DISTANCE TRAVELED}) \\
+- (\text{LITTERS PER FISHING HOUR} \times \text{NUMER OF FISHING SITES VISITED}) 
+\end{align*}
+
+After landing and selling the catch, boats rest at port, to start a new trip.
+
+\subsection{Turtles sub-model}
+\label{sec:org90fc245}
+
+Turtles can move, reproduce and die. Each time-step (day) turtles choose one random neighbor patch and move towards it by a length unit (size of patch). The movement of the turtles is restricted to two different regions of the world depending on the period of the year. From October to April they move in their "feeding area" a region defined far away of the coast. From May to September turtles move in the "reproductive area" near the coast line. On the first day of May turtles migrate towards the "reproductive area" by restricting their movement only to the 3 patches towards the coast. On the first day of October turtles migrate towards the "feeding area" by restricting their movement only to the 3 patches towards the "deep waters". When turtles reach their destination random movement resumes.
+
+All turtles reproduce on the 180'th day of the year. They produce NUM\textsubscript{DESCENDIENTES}\textsubscript{TORTUGAS} siblings. Three different events can kill a turtle: 1) overpopulation, 2) incidental catches, and 3) oil spill damage. Overpopulation mortality only operates in the "feeding area". In each feeding patch there can be at maximum CAPACIDAD\textsubscript{CARGA}\textsubscript{TORTUGAS} turtles. In a time-step we kill the surplus population in a patch by randomly killing turtles until the maximum capacity of the patch is reached. As turtles start to migrate at the same moment they reach the "feeding area" similar periods. So after migration there is a huge overpopulation on the feeding patches nearest to the coast. To avoid excess mortality due to synchronous migration of turtles we add a "buffer time". For overpopulation mortality to start operating turtles must have passed TIEMPO\textsubscript{BUFFER}\textsubscript{TORTUGAS} time-steps (days) in the "feeding region". This gives time for turtles to distribute over the "feeding region" avoiding a huge mortality due to the movement and migration mechanisms.
+
+Turtles can also die due to fishing and oil spills. We supposed that when turtles are in the same patch as a boat that is fishing then there is a probability (PROB\textsubscript{MORTALIDAD}\textsubscript{TORTUGA}\textsubscript{POR}\textsubscript{PESCA}) of death. Additionally we supposed that when the turtles is in a patch that has an oil spill it has a probability of dying (MORTALIDAD\textsubscript{TORTUGAS}\textsubscript{DERRAME}). 
+
+\subsection{Oil sub-model}
+\label{sec:org097ce14}
+
+The oil sub-model is composed of two agents: platforms and oil tankers. Platforms can extract oil and be the origin of an oil spill. Oil tankers transport the oil production to the port and calculate the income.
+
+Each patch is initialized with HIDROCARUBRO\textsubscript{INICIAL} units of oil. Oil extraction is supposed to follow a bounded exponential decay:
+
+\[ P_{t+1} = \min ( p_{\max} , d \cdot o_t ) \]
+
+where \(P_{t+1}\) is the oil production at time \(t+1\), \(p_\max\) is the maximum possible production, \(d\) is the declination rate (TASA\textsubscript{DECLINACION}\textsubscript{HIDROCARBURO}) and \(o_t\) is the oil at the patch at time \(t\). And the oil at the patch (\(o_{t+1})\) changes according to the next expression:
+
+\[ o_{t+1} = o_t - P_{t+1} \]
+
+Each oil platform has an oil tanker that carries their oil production stock to the nearest port. Oil tankers move at a steady velocity between their platform and port. When they arrive to the platform they carry all the platform oil stock and when they arrive to the port they discharge and calculate the income following the next expression:
+
+\begin{align*}
+\text{INCOME}_{\text{oil}} =  \\
+\text{OIL CARGO} \cdot \text{OIL PRICE}  \\
+ - (\text{TANSPORT COST PER DISTANCE UNITE} \cdot \text{PATCH LENGTH}) \\
+ - \text{MAINTENANCE COST}
+   \end{align*}
+
+Each time-step oil platforms can start an oil spill with a probability. This probability depends on the maintenance costs. We supposed that oil spill probability is linearly related to the maintenance cost:
+
+\[ \mathbb{P}(\text{oil spil} | \text{m}) = m \cdot \left( -  \frac{p_{\text{oil},\max} - p_{\text{oil},\min}}{5} \right) + p_{\text{oil},\max} \]
+
+where \(\mathbb{P}(\text{oil spil}|m)\) is the probability of an oil spill starting at a platform given the maintenance cost \(m\), \(p_{\text{oil},\max}\) and \(p_{\text{oil},\min}\) are the maximum and minimum oil spill starting probabilities, respectively (MAX\textsubscript{PROB}\textsubscript{OCURRENCIA}\textsubscript{DERRAME}, MIN\textsubscript{PROB}\textsubscript{OCURRENCIA}\textsubscript{DERRAME}).
+
+Each time step oil spills can extend to neighboring patches by percolation. Each neighbor of a patch that got contaminated in the previous time-step can get contaminated with a fixed probability (PROB\textsubscript{EXTENSION}\textsubscript{DERRAME}). Each patch stays in contaminated state during a fixed amount of time (TIEMPO\textsubscript{DERRAMADO}). After this time passes it returns to a non contaminated state. A contaminated patch kills a proportion (TASA\textsubscript{MORTALIDAD}\textsubscript{DERRAME}) of biomass of each species in it. Oil spills penalize the oil production at the origin platform by stopping its production during a fixed amount of time (TIEMPO\textsubscript{DERRAMAD}).
+
+Platforms get inactivated when they generate an income lower than zero for a continuous period of time (MESES\textsubscript{PARA}\textsubscript{COLAPSO}\textsubscript{PLATAFORMA}).
+
+\subsection{{\bfseries\sffamily TODO} Game play}
+\label{sec:org91887bc}
+
+\section{References}
+\label{sec:orgf1ad4ed}
+\noindent
+Bailey, Richard M. and Carrella, Ernesto and Axtell, Robert and Burgess, Matthew G. and Cabral, Reniel B. and Drexler, Michael and Dorsett, Chris and Madsen, Jens Koed and Merkl, Andreas and Saul, Steven (2019). \emph{A Computational Approach to Managing Coupled Human--Environmental Systems: The {{POSEIDON}} Model of Ocean Fisheries}, Sustainability Science.
+
+\noindent
+Carrella, Ernesto and Saul, Steven and Marshall, Kristin and Burgess, Matthew G. and Cabral, Reniel B. and Bailey, Richard M. and Dorsett, Chris and Drexler, Michael and Madsen, Jens Koed and Merkl, Andreas (2020). \emph{Simple {{Adaptive Rules Describe Fishing Behaviour Better}} than {{Perfect Rationality}} in the {{US West Coast Groundfish Fishery}}}, Ecological Economics.
+\end{document}
