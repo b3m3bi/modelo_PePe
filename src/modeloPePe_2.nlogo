@@ -148,9 +148,9 @@ ticks
 
 BUTTON
 15
-555
+355
 165
-600
+400
 NIL
 INICIALIZAR
 NIL
@@ -165,9 +165,9 @@ NIL
 
 BUTTON
 165
-555
+355
 310
-600
+400
 NIL
 EJECUTAR
 T
@@ -188,7 +188,7 @@ CHOOSER
 COLOREAR_POR
 COLOREAR_POR
 "tipo" "biomasa total" "biomasa total especie" "zonificacion" "biomasa, zonificacion y derrames" "biomasa y derrames" "hidrocarburo" "derrames"
-5
+4
 
 SLIDER
 2490
@@ -269,7 +269,7 @@ CHOOSER
 SELECCION_SITIO_PESCA
 SELECCION_SITIO_PESCA
 "EEI en radio" "EEI en region" "EEI en radio y region" "aleatorio"
-2
+0
 
 SLIDER
 2490
@@ -280,7 +280,7 @@ LONG_REGION_1
 LONG_REGION_1
 0
 50
-5.0
+50.0
 1
 1
 NIL
@@ -411,7 +411,7 @@ VELOCIDAD
 VELOCIDAD
 0
 100
-3.0
+5.0
 0.1
 1
 km/hora
@@ -456,7 +456,7 @@ HORAS_MAXIMAS_EN_MAR_PUERTO_1
 HORAS_MAXIMAS_EN_MAR_PUERTO_1
 1
 480
-8.0
+120.0
 1
 1
 NIL
@@ -470,7 +470,7 @@ CHOOSER
 DISTRIBUCION_ESPECIES
 DISTRIBUCION_ESPECIES
 "homogenea" "partes iguales" "dif spp en cada region"
-2
+0
 
 SLIDER
 2290
@@ -481,7 +481,7 @@ NUM_ESPECIES
 NUM_ESPECIES
 1
 3
-3.0
+1.0
 1
 1
 NIL
@@ -507,8 +507,8 @@ PRECIO_LITRO_GAS
 PRECIO_LITRO_GAS
 0
 30
-25.0
-1
+0.01
+0.01
 1
 $
 HORIZONTAL
@@ -549,7 +549,7 @@ INPUTBOX
 2475
 205
 Ks
-[1000 1000 1000]
+[500 500 500]
 1
 0
 String
@@ -640,7 +640,7 @@ CHOOSER
 SELECCION_MEJOR_SITIO
 SELECCION_MEJOR_SITIO
 "inicio de viaje" "mayor captura en viaje"
-1
+0
 
 INPUTBOX
 2290
@@ -680,7 +680,7 @@ INPUTBOX
 2475
 270
 Rs_min
-[0.4 0.4 0.4]
+[0.7 0.7 0.7]
 1
 0
 String
@@ -971,9 +971,9 @@ timer / 60
 
 SLIDER
 15
-515
+215
 310
-548
+248
 RADIO_RESTRICCION_PLATAFORMAS
 RADIO_RESTRICCION_PLATAFORMAS
 0
@@ -1065,10 +1065,10 @@ NIL
 1
 
 SLIDER
-15
-435
-310
-468
+3880
+335
+4175
+368
 SUBSIDIO_MENSUAL_GASOLINA
 SUBSIDIO_MENSUAL_GASOLINA
 0
@@ -1088,21 +1088,21 @@ NUMERO_DE_PLATAFORMAS
 NUMERO_DE_PLATAFORMAS
 0
 30
-10.0
+0.0
 1
 1
 plataformas
 HORIZONTAL
 
 CHOOSER
-15
-215
-310
-260
+3880
+230
+4175
+275
 REGION_DE_PLATAFORMAS
 REGION_DE_PLATAFORMAS
 1 2 3
-1
+0
 
 SLIDER
 1990
@@ -1206,7 +1206,7 @@ CAPACIDAD_CARGA_TORTUGAS
 CAPACIDAD_CARGA_TORTUGAS
 1
 20
-3.0
+2.0
 1
 1
 NIL
@@ -1319,7 +1319,7 @@ SWITCH
 478
 VEDA_JUL
 VEDA_JUL
-0
+1
 1
 -1000
 
@@ -1383,10 +1383,10 @@ PENS
 "umbral" 1.0 0 -7500403 true "" "if paso_un_dia? [ plotxy dias 0]"
 
 CHOOSER
-15
-115
-310
-160
+3880
+185
+4175
+230
 REGION_DONDE_PESCAR
 REGION_DONDE_PESCAR
 "Linea de costa: camarón" "Plataformas: escama" "Profundo: huachinango"
@@ -1410,7 +1410,7 @@ SLIDER
 NUMERO_EMBARCACIONES
 NUMERO_EMBARCACIONES
 0
-500
+300
 300.0
 10
 1
@@ -1419,9 +1419,9 @@ HORIZONTAL
 
 CHOOSER
 15
-470
+115
 310
-515
+160
 TIPO_DE_EMBARCACIONES
 TIPO_DE_EMBARCACIONES
 "pequeña escala (1 ton, 3 tripulantes)" "semi-industrial (10 ton, 5 tripulantes)"
@@ -1498,7 +1498,7 @@ INPUTBOX
 2945
 440
 PRECIOS_KILO_BIOMASA
-[50 20 20 ]
+[10 20 20 ]
 1
 0
 String
@@ -1539,10 +1539,10 @@ PENS
 "quiebra" 1.0 0 -2674135 true "" "if paso_un_mes? [ plotxy dias count embarcaciones with [ estado_economico = \"quiebra\" ]]"
 
 SLIDER
-15
-260
-310
-293
+3880
+275
+4175
+308
 GASTO_EN_MANTENIMIENTO
 GASTO_EN_MANTENIMIENTO
 0
@@ -1611,9 +1611,9 @@ RONDA
 
 TEXTBOX
 20
-295
+255
 170
-313
+273
 SECTOR CONSERVACIÓN
 12
 0.0
@@ -1929,21 +1929,21 @@ INPUTBOX
 1815
 480
 ANOS_PRUEBA
-10.0
+100.0
 1
 0
 Number
 
 SLIDER
 15
+270
 310
-310
-343
+303
 ANCHO_ZONA_PROTEGIDA
 ANCHO_ZONA_PROTEGIDA
 0
 17
-10.0
+0.0
 1
 1
 pixeles
@@ -1951,9 +1951,9 @@ HORIZONTAL
 
 SLIDER
 15
-345
+305
 310
-378
+338
 LARGO_ZONA_PROTEGIDA
 LARGO_ZONA_PROTEGIDA
 0
@@ -1994,7 +1994,7 @@ HORAS_DESCANSAR_PUERTO_1
 HORAS_DESCANSAR_PUERTO_1
 0
 300
-32.0
+12.0
 1
 1
 NIL
@@ -2031,23 +2031,23 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-3890
-95
-4420
-246
+3875
+15
+4405
+166
 Region 1:\nviajar 5-6 veces a la semana -> HORAS_DESCANSAR_PUERTO_1 = 30 -> 5.6 veces por semana, 1.6-4.2-9 horas en mar..., 9-45-30 km\nRegion 2:\nviajar 2-3 veces a la semana -> HORAS_DESCANSAR_PUERTO_1 = 72 -> 2.5 veces por semana, 2-4.6-9 horas en mar..., 32-73-? km\nRegion 3:\nviajar 0.5 veces a la semana -> HORAS_DESCANSAR_PUERTO_1 = 300 -> 0.6 veces por semana, 3.3-6-? horas en mar..., 87-93-? km
 12
 0.0
 1
 
 SWITCH
-15
-380
-310
-413
+3880
+370
+4175
+403
 VEDA_TEMPORAL
 VEDA_TEMPORAL
-0
+1
 1
 -1000
 
@@ -2080,7 +2080,7 @@ SWITCH
 443
 VEDA_JUN
 VEDA_JUN
-0
+1
 1
 -1000
 
@@ -2118,10 +2118,10 @@ VEDA_DIC
 -1000
 
 TEXTBOX
-20
-415
-170
-433
+3885
+315
+4035
+333
 POLÍTICAS
 12
 0.0
@@ -2156,7 +2156,7 @@ SWITCH
 548
 MOSTRAR_MENSAJES?
 MOSTRAR_MENSAJES?
-0
+1
 1
 -1000
 
@@ -2405,6 +2405,28 @@ precision viajes_prom_ultimo_mes 2
 2
 1
 11
+
+SWITCH
+3665
+500
+3905
+533
+INACTIVAR_PESCA?
+INACTIVAR_PESCA?
+1
+1
+-1000
+
+SWITCH
+3665
+535
+3905
+568
+INACTIVAR_HIDROCARBURO?
+INACTIVAR_HIDROCARBURO?
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -3522,6 +3544,63 @@ NetLogo 6.4.0
       <value value="&quot;[0.002 0.002 0.002]&quot;"/>
       <value value="&quot;[0.005 0.005 0.005]&quot;"/>
       <value value="&quot;[0.007 0.007 0.007]&quot;"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="calibracion_pesca_04" repetitions="30" runMetricsEveryStep="false">
+    <setup>INICIALIZAR</setup>
+    <go>EJECUTAR</go>
+    <timeLimit steps="3653"/>
+    <metric>fecha</metric>
+    <metric>sum [capturas_mes_puerto] of one-of puertos with [num_puerto = 0]</metric>
+    <metric>([sum distancias_recorridas_mes_puerto] of one-of puertos with [num_puerto = 0] *  longitud_celda) / NUMERO_EMBARCACIONES</metric>
+    <metric>[sum ganancias_mes_puerto] of one-of puertos with [num_puerto = 0]</metric>
+    <metric>[sum horas_en_mar_mes_puerto] of one-of puertos with [num_puerto = 0] / NUMERO_EMBARCACIONES</metric>
+    <metric>sum [gastos_gasolina_mes_puerto ] of one-of puertos with [num_puerto = 0] / NUMERO_EMBARCACIONES</metric>
+    <metric>sum [viajes_finalizados_mes_puerto] of puertos with [num_puerto = 0]</metric>
+    <metric>sum [salario_mensual_tripulacion] of embarcaciones with [[num_puerto] of mi_puerto = 0] / NUMERO_EMBARCACIONES</metric>
+    <metric>count embarcaciones with [ estado_economico = "viable" ]</metric>
+    <metric>count embarcaciones with [ estado_economico = "crisis" ]</metric>
+    <metric>count embarcaciones with [ estado_economico = "quiebra" ]</metric>
+    <metric>sum[item 0 biomasas] of patches</metric>
+    <metric>count tortugas</metric>
+    <metric>tiempo_pesca_sostenible</metric>
+    <metric>tiempo_hidrocarburo_sostenible</metric>
+    <metric>tiempo_biomasa_sostenible</metric>
+    <metric>tiempo_tortugas_sostenible</metric>
+    <metric>num_derrames</metric>
+    <metric>produccion_mes_hidrocarburo</metric>
+    <metric>produccion_total_hidrocarburo</metric>
+    <metric>ganancia_mes_hidrocarburo</metric>
+    <metric>captura_acumulada</metric>
+    <metric>ganancia_acumulada</metric>
+    <metric>gasto_gasolina_acumulada</metric>
+    <metric>horas_en_mar_acumulada</metric>
+    <runMetricsCondition>member? ticks ticks_registros_mes</runMetricsCondition>
+    <enumeratedValueSet variable="RONDA">
+      <value value="&quot;NA&quot;"/>
+    </enumeratedValueSet>
+    <steppedValueSet variable="NUMERO_EMBARCACIONES" first="50" step="50" last="300"/>
+    <enumeratedValueSet variable="TIPO_DE_EMBARCACIONES">
+      <value value="&quot;pequeña escala (1 ton, 3 tripulantes)&quot;"/>
+      <value value="&quot;semi-industrial (10 ton, 5 tripulantes)&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUMERO_DE_PLATAFORMAS">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="RADIO_RESTRICCION_PLATAFORMAS">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ANCHO_ZONA_PROTEGIDA">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LARGO_ZONA_PROTEGIDA">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="Ks">
+      <value value="&quot;[100 100 100]&quot;"/>
+      <value value="&quot;[300 300 300]&quot;"/>
+      <value value="&quot;[600 600 600]&quot;"/>
+      <value value="&quot;[900 900 900]&quot;"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>

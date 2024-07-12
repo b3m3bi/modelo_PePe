@@ -37,7 +37,6 @@ embarcaciones-own [
   estado_economico                 ;; string: describe la viabilidad económica de la embarcación ("viable", "crisis", "quiebra")
   activo?                          ;; boolean: indica si una embarcación está activa o no
   meses_crisis                     ;; number: indica cuantos meses lleva una embarcación en estado de crisis
-  averidado?
   inactivo_por_veda?               ;; boolean: indica si una embarcación inactiva por respetar una veda
   especies_pescadas                ;; list (number): indica que se pesca (1) o no (0) a la especie en el índice
   tortugas_matadas                 ;; number: número de tortugas que he la embarcación ha matado
@@ -78,7 +77,7 @@ to init_embarcacion [_puerto _reg_pesca]
     [num_puerto] of mi_puerto = 0 [
       set capturabilidad CAPTURABILIDAD_PUERTO_1
       set capacidad_maxima CAPACIDAD_MAXIMA_PUERTO_1
-      set especies_pescadas read-from-string ESPECIES_PESCA_PUERTO_1
+      set especies_pescadas sublist (read-from-string ESPECIES_PESCA_PUERTO_1) 0 _num_especies
       set horas_maximas_en_mar HORAS_MAXIMAS_EN_MAR_PUERTO_1
       set tamanio_tripulacion TAMANIO_TRIPULACION_PUERTO_1
       set horas_descansar HORAS_DESCANSAR_PUERTO_1
@@ -86,7 +85,7 @@ to init_embarcacion [_puerto _reg_pesca]
     [num_puerto] of mi_puerto = 1 [
       set capturabilidad CAPTURABILIDAD_PUERTO_2
       set capacidad_maxima CAPACIDAD_MAXIMA_PUERTO_2
-      set especies_pescadas read-from-string ESPECIES_PESCA_PUERTO_2
+      set especies_pescadas sublist (read-from-string ESPECIES_PESCA_PUERTO_2) 0 _num_especies
       set horas_maximas_en_mar HORAS_MAXIMAS_EN_MAR_PUERTO_2
       set tamanio_tripulacion TAMANIO_TRIPULACION_PUERTO_2
       set horas_descansar HORAS_DESCANSAR_PUERTO_2
@@ -94,7 +93,7 @@ to init_embarcacion [_puerto _reg_pesca]
     [num_puerto] of mi_puerto = 2 [
       set capturabilidad CAPTURABILIDAD_PUERTO_3
       set capacidad_maxima CAPACIDAD_MAXIMA_PUERTO_3
-      set especies_pescadas read-from-string ESPECIES_PESCA_PUERTO_3
+      set especies_pescadas sublist (read-from-string ESPECIES_PESCA_PUERTO_3) 0 _num_especies
       set horas_maximas_en_mar HORAS_MAXIMAS_EN_MAR_PUERTO_3
       set tamanio_tripulacion TAMANIO_TRIPULACION_PUERTO_3
       set horas_descansar HORAS_DESCANSAR_PUERTO_3
@@ -104,7 +103,6 @@ to init_embarcacion [_puerto _reg_pesca]
   set estado_economico "viable"
   set activo? true
   set meses_crisis 0
-  set averidado? false
   set inactivo_por_veda? false
   set tiempo_descansado random horas_descansar
   set tortugas_matadas 0
@@ -141,7 +139,7 @@ to init_embarcaciones
       ]
     ]
   ]
-  set precios_biomasa read-from-string PRECIOS_KILO_BIOMASA
+  set precios_biomasa sublist (read-from-string PRECIOS_KILO_BIOMASA) 0 _num_especies
   
   let regs_pesca_unicas remove-duplicates (sublist regs_pesca 0 NUM_PUERTOS)
   foreach regs_pesca_unicas [
@@ -440,7 +438,7 @@ to desembarcar
   set tiempo_restante_iteracion tiempo_restante_iteracion - 1
   set tiempo_descansado 0
   set estado "descansando"
-  if estado_economico = "quiebra" [
+  if estado_economico = "quiebra" and INACTIVAR_PESCA? [
     move-to mi_puerto 
     set heading 90
     fd 1
