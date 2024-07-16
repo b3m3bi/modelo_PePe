@@ -2,6 +2,11 @@ breed [ embarcaciones embarcacion ]
 breed [ puertos puerto ]
 directed-link-breed [ amistades amistad ]
 
+breed [ logos logo ]
+breed [ indicadores indicador ]
+
+indicadores-own [ elemento ]
+
 globals [
   celdas_tierra
   celdas_mar
@@ -11,42 +16,35 @@ globals [
   celdas_protegido
   celdas_NA
 
-  horas_iteracion
-  longitud_celda
-
   dias_transcurridos
   meses_transcurridos
   anos_transcurridos
 
   ;; registros
-  capturas_dia
   capturas_mes
   captura_acumulada
-  distancias_recorridas_dia
   distancias_recorridas_mes
   distancia_recorrida_acumulada
-  horas_en_mar_dia
   horas_en_mar_mes
   horas_en_mar_acumuladas
-  gasto_gas_dia
   gasto_gas_mes
   gasto_gas_acumulado
-  ganancias_dia
   ganancias_mes
   ganancia_acumulada
-  num_viajes_dia
   num_viajes_mes
   num_viajes_acumulado
 
   ;; jugabilidad
-  meses_con_salario_promedio_menor_al_min
+  meses_crisis_pesca
+  perdio?
+  mensajes_juego
+  memoria_mensajes
 
-  ;; paisaje
-  LONG_TIERRA
+  pesca_sostenible?
+  biomasa_sostenible?
 
-  ;; zonificacion
-  LARGO_ZONA_PROTEGIDA
-  ANCHO_ZONA_PROTEGIDA
+  dias_pesca_sostenible
+  dias_biomasa_sostenible
 ]
 
 patches-own [
@@ -88,7 +86,6 @@ to INICIALIZAR
   clear-all
 
   init_globales
-  init_parametros
   init_paisaje
   init_ecologia
   init_zonificaion
@@ -97,6 +94,9 @@ to INICIALIZAR
   init_rutas
   init_registros
 
+  init_jugabilidad
+  init_indicadores
+
   colorear_celdas
   reset-ticks
 end
@@ -104,61 +104,47 @@ end
 to EJECUTAR
   if ticks = 0 [reset-timer]
 
-  if paso_un_dia? [ reiniciar_registros_diarios ]
+  if paso_un_dia? [ actualizar_tiempos_sostenibilidad ]
+  if paso_un_mes? [ revisar_umbrales_juego ]
+  if MOSTRAR_MENSAJES? and mensajes_juego != [] [ foreach mensajes_juego [ mj -> user-message mj ] set mensajes_juego [] ]
+  if DETENER_SI_PIERDE? and perdio? [ stop ]
+
   if paso_un_mes? [
     reiniciar_registros_mensuales
     ask embarcaciones [ set salario_mensual 0 ]
   ]
 
-  ask embarcaciones [ paso_pesca ]
+  ask embarcaciones [ paso_embarcacion ]
   if paso_un_dia? [ ask celdas_mar [ dispersion ] ]
   if paso_un_ano? [ ask celdas_mar [ dinamica_poblacional ]]
 
   colorear_celdas
 
   actualizar_fecha
+
   tick
 end
 
 to init_globales
-  set horas_iteracion 24
-  set longitud_celda 1
-
   set dias_transcurridos 0
   set dias_transcurridos 0
   set meses_transcurridos 0
   set anos_transcurridos 0
 end
 
-to init_parametros
-  ;; paisaje
-  set LONG_TIERRA 6
-
-  ;; zonificacion
-  set LARGO_ZONA_PROTEGIDA 0
-  set ANCHO_ZONA_PROTEGIDA 0
-end
-
 to init_registros
-  set capturas_dia []
   set capturas_mes []
   set captura_acumulada 0
-  set distancias_recorridas_dia []
   set distancias_recorridas_mes []
   set distancia_recorrida_acumulada 0
-  set horas_en_mar_dia []
   set horas_en_mar_mes []
   set horas_en_mar_acumuladas 0
-  set gasto_gas_dia []
   set gasto_gas_mes []
   set gasto_gas_acumulado 0
-  set ganancias_dia []
   set ganancias_mes []
   set ganancia_acumulada 0
-  set num_viajes_dia 0
   set num_viajes_mes 0
   set num_viajes_acumulado 0
-
 end
 
 to init_paisaje
@@ -215,7 +201,7 @@ to init_embarcaciones
     move-to one-of puertos
 
     set estado "descansando"
-    set tiempo_restante_iteracion horas_iteracion
+    set tiempo_restante_iteracion HORAS_ITERACION
     set tiempo_descansado HORAS_DESCANSAR
     set tipo_planeacion ""
     set destino nobody
@@ -238,18 +224,64 @@ to init_embarcaciones
       create-amistades-to (n-of NUM_AMIGOS other embarcaciones) [hide-link]
     ]
   ][
-    print (word "Advertencia: No hay suficientes embarcaciones en el puerto para formar " NUM_AMIGOS "amistades. No se creará ninguna amistad.")
+    print (word "Advertencia: No hay suficientes embarcaciones en el puerto para formar " NUM_AMIGOS " amistades. No se creará ninguna amistad.")
   ]
 
 end
 
 to init_rutas
   actualizar_transitables_embarcaciones
-  ask patches with [transitable_embarcacion?][
+  ask celdas_libre [
     set ruta_puerto_sitio obtener_ruta_A_star ([patch-here] of one-of puertos) self
 ;    set ruta_sitio_puerto obtener_ruta_A_star self ([patch-here] of one-of puertos)
   ]
 end
+
+to init_jugabilidad
+  set perdio? false
+  set mensajes_juego []
+  set mensajes_juego []
+  set memoria_mensajes n-values 4 [false]
+
+  set meses_crisis_pesca 0
+
+  set pesca_sostenible? true
+  set biomasa_sostenible? true
+
+  set dias_pesca_sostenible 0
+  set dias_biomasa_sostenible 0
+end
+
+to init_indicadores
+  let elementos ["pesca" "biomasa" "hidrocarburo" "tortugas" ]
+  let inicio_x 34
+  let inicio_y 20
+
+  let pos (list (list inicio_x inicio_y) (list inicio_x (inicio_y - 2)) (list inicio_x (inicio_y - 4)) (list inicio_x (inicio_y - 6)))
+  let _shapes [ "boat" "camaron" "plataforma" "tortuga" ]
+  let _colors (list red pink (gray - 4) (brown + 1) )
+  let poner? (list (any? embarcaciones) true false false)
+
+  (foreach elementos pos _shapes _colors poner? [
+    [el p s c p?] ->
+    if p? [
+      create-indicadores 1 [
+        set elemento el
+        actualizar_indicador el "viable"
+        set size 1.5
+        setxy (item 0 p) (item 1 p) - 2
+      ]
+      create-logos 1 [
+        set shape s
+        set color c
+        set size 2
+        set heading 0
+        setxy ((item 0 p) - 2) (item 1 p) - 2
+      ]
+    ]
+  ])
+end
+
 
 to colorear_celdas
   if COLOREAR_POR = "tipo" [
@@ -269,8 +301,8 @@ to colorear_celdas
   ]
 end
 
-to paso_pesca
-  set tiempo_restante_iteracion horas_iteracion
+to paso_embarcacion
+  set tiempo_restante_iteracion HORAS_ITERACION
   ejecutar_estado
 end
 
@@ -288,6 +320,7 @@ to ejecutar_estado
 end
 
 to descansar
+  if not pesca_sostenible? and INACTIVAR_PESCA_COLAPSO? [ set tiempo_restante_iteracion 0  stop ]
   let tiempo_descanso_iteracion 0
   ifelse HORAS_DESCANSAR - tiempo_descansado > tiempo_restante_iteracion [
     ;; si el tiempo restante de la iteración es menor al necesario para descansar
@@ -328,7 +361,7 @@ to moverse
     [ set estado "pescando" ]
   ][
     ;; avanzo una unidad de velocidad hacia mi destino
-    let tamanio_paso VELOCIDAD / longitud_celda
+    let tamanio_paso VELOCIDAD / LONGITUD_CELDA
     let distancia_avanzada 0
 
     let llegue? false
@@ -410,7 +443,7 @@ end
 
 to desembarcar
 
-  set gasto_gas PRECIO_LITRO_GAS * LITROS_POR_DISTANCIA * longitud_celda * distancia_recorrida + LITROS_POR_HORA_PESCA * (length sitios_visitados)
+  set gasto_gas PRECIO_LITRO_GAS * LITROS_POR_DISTANCIA * LONGITUD_CELDA * distancia_recorrida + LITROS_POR_HORA_PESCA * (length sitios_visitados)
   let ingresos_captura (sum capturas_viaje) * PRECIO_BIOMASA
   set ganancia ingresos_captura - gasto_gas
   set ganancia_por_hora ganancia / horas_en_mar
@@ -434,33 +467,18 @@ to desembarcar
 end
 
 to registrar_viaje
-  set capturas_dia lput (sum capturas_viaje) capturas_dia
   set capturas_mes lput (sum capturas_viaje) capturas_mes
   set captura_acumulada captura_acumulada + (sum capturas_viaje)
-  set distancias_recorridas_dia lput distancia_recorrida distancias_recorridas_dia
   set distancias_recorridas_mes lput distancia_recorrida distancias_recorridas_mes
   set distancia_recorrida_acumulada distancia_recorrida_acumulada + distancia_recorrida
-  set horas_en_mar_dia lput horas_en_mar horas_en_mar_dia
   set horas_en_mar_mes lput horas_en_mar horas_en_mar_mes
   set horas_en_mar_acumuladas horas_en_mar_acumuladas + horas_en_mar
-  set gasto_gas_dia lput gasto_gas gasto_gas_dia
   set gasto_gas_mes lput gasto_gas gasto_gas_mes
   set gasto_gas_acumulado gasto_gas_acumulado + gasto_gas
-  set ganancias_dia lput ganancia ganancias_dia
   set ganancias_mes lput ganancia ganancias_mes
   set ganancia_acumulada ganancia_acumulada + ganancia
-  set num_viajes_dia num_viajes_dia + 1
   set num_viajes_mes num_viajes_mes + 1
   set num_viajes_acumulado num_viajes_acumulado + 1
-end
-
-to reiniciar_registros_diarios
-  set capturas_dia []
-  set distancias_recorridas_dia []
-  set horas_en_mar_dia []
-  set gasto_gas_dia []
-  set ganancias_dia []
-  set num_viajes_dia 0
 end
 
 to reiniciar_registros_mensuales
@@ -480,7 +498,6 @@ end
 to dinamica_poblacional
   set biomasa biomasa + (biomasa * R * (1 - (biomasa / K)))
 end
-
 
 to-report obtener_indice_max [ lista ]
   let maximo max lista
@@ -521,7 +538,6 @@ to actualizar_transitables_embarcaciones
   ]
 end
 
-
 to-report reconstrurir_ruta_A_star [inicio final]
   let celda_actual final
   let _ruta (list celda_actual)
@@ -554,15 +570,15 @@ to-report vecindad_moore [n centro?]
 end
 
 to-report paso_un_dia?
-  report ticks != 0  and (horas_iteracion * ticks mod 24) = 0
+  report ticks != 0  and (HORAS_ITERACION * ticks mod 24) = 0
 end
 
 to-report paso_un_mes?
-  report ticks != 0 and (ticks mod (24 * 30 / horas_iteracion)) = 0
+  report ticks != 0 and (ticks mod (24 * 30 / HORAS_ITERACION)) = 0
 end
 
 to-report paso_un_ano?
-  report ticks != 0 and (ticks mod (24 * 360 / horas_iteracion)) = 0
+  report ticks != 0 and (ticks mod (24 * 360 / HORAS_ITERACION)) = 0
 end
 
 to actualizar_fecha
@@ -571,9 +587,65 @@ to actualizar_fecha
   if paso_un_ano? [ set anos_transcurridos anos_transcurridos + 1 ]
 end
 
+to revisar_umbrales_juego
 
+  set mensajes_juego []
 
+  if any? embarcaciones [
+    ifelse mean [ salario_mensual ] of embarcaciones < SALARIO_MIN_MENSUAL [
+      set meses_crisis_pesca meses_crisis_pesca + 1
+    ][
+      set meses_crisis_pesca 0
+    ]
+    ifelse meses_crisis_pesca >= 1 or meses_crisis_pesca >= MAX_MESES_CRISIS_PESCA [
+      ifelse  meses_crisis_pesca >= MAX_MESES_CRISIS_PESCA [
+        set perdio? true
+        set pesca_sostenible? false
+        if not (item 0 memoria_mensajes) [
+          set memoria_mensajes replace-item 0 memoria_mensajes true
+          let mensaje_juego (word "Colapso de la industria pesquera: El ingreso promedio de los pescadores fue menor a $7000 durante " meses_crisis_pesca " meses seguidos.")
+          set mensajes_juego lput mensaje_juego mensajes_juego
+        ]
+        actualizar_indicador "pesca" "colapso"
+      ][
+        actualizar_indicador "pesca" "crisis"
+      ]
+    ][
+      actualizar_indicador "pesca" "viable"
+    ]
+  ]
 
+  ifelse sum [biomasa] of patches < K * count celdas_mar * PORCENTAJE_BIOMASA_CRISIS / 100 [
+    ifelse sum [biomasa] of patches < K * count celdas_mar * PORCENTAJE_BIOMASA_COLAPSO / 100 [
+      set perdio? true
+      set biomasa_sostenible? false
+      if not (item 1 memoria_mensajes) [
+        set memoria_mensajes replace-item 1 memoria_mensajes true
+        let mensaje_juego (word "Sobrepesca: El recurso pesquero es menor al " PORCENTAJE_BIOMASA_COLAPSO "% del inicial. El recurso pesquero está en un estado crítico.")
+        set mensajes_juego lput mensaje_juego mensajes_juego
+      ]
+      actualizar_indicador "biomasa" "colapso"
+    ][
+      actualizar_indicador "biomasa" "crisis"
+    ]
+  ][
+    actualizar_indicador "biomasa" "viable"
+  ]
+end
+
+to actualizar_indicador [ ele edo ]
+  ask indicadores with [ elemento = ele ][
+    (ifelse
+      edo = "viable" [ set shape "face happy" set color lime ]
+      edo = "crisis" [ set shape "face neutral" set color yellow ]
+      edo = "colapso" [ set shape "face sad" set color red ])
+  ]
+end
+
+to actualizar_tiempos_sostenibilidad
+  if any? embarcaciones and pesca_sostenible? [ set dias_pesca_sostenible dias_pesca_sostenible + 1]
+  if biomasa_sostenible? [ set dias_biomasa_sostenible dias_biomasa_sostenible + 1 ]
+end
 
 @#$#@#$#@
 GRAPHICS-WINDOW
@@ -604,10 +676,10 @@ ticks
 30.0
 
 BUTTON
-20
-295
-155
-328
+15
+425
+125
+458
 NIL
 INICIALIZAR
 NIL
@@ -621,10 +693,10 @@ NIL
 1
 
 BUTTON
-20
-330
-155
-363
+15
+460
+125
+493
 NIL
 EJECUTAR
 T
@@ -638,53 +710,35 @@ NIL
 1
 
 CHOOSER
-35
-430
-173
-475
+250
+10
+388
+55
 COLOREAR_POR
 COLOREAR_POR
 "tipo" "zonificacion" "biomasa"
 2
 
 SLIDER
-20
-15
-252
-48
+5
+55
+237
+88
 NUMERO_EMBARCACIONES
 NUMERO_EMBARCACIONES
 0
-300
-300.0
+500
+200.0
 50
 1
 NIL
 HORIZONTAL
 
-PLOT
-1835
-10
-2035
-130
-captura total diaria
-día
-captura
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"total" 1.0 0 -16777216 true "" "if paso_un_dia? [ plotxy dias_transcurridos sum capturas_dia ]"
-
 MONITOR
-20
-55
-140
-100
+250
+460
+370
+505
 NIL
 dias_transcurridos
 17
@@ -692,10 +746,10 @@ dias_transcurridos
 11
 
 MONITOR
-20
-100
-140
-145
+250
+505
+370
+550
 NIL
 meses_transcurridos
 17
@@ -703,10 +757,10 @@ meses_transcurridos
 11
 
 MONITOR
-20
-145
-140
-190
+250
+550
+370
+595
 NIL
 anos_transcurridos
 17
@@ -714,10 +768,10 @@ anos_transcurridos
 11
 
 MONITOR
-120
-210
-170
-255
+670
+10
+720
+55
 dia
 (dias_transcurridos mod 30) + 1
 17
@@ -725,10 +779,10 @@ dia
 11
 
 MONITOR
-70
-210
-120
-255
+620
+10
+670
+55
 mes
 (meses_transcurridos mod 12) + 1
 17
@@ -736,10 +790,10 @@ mes
 11
 
 MONITOR
-20
-210
-70
-255
+570
+10
+620
+55
 año
 anos_transcurridos
 17
@@ -763,12 +817,14 @@ false
 "" ""
 PENS
 "biomasa" 1.0 0 -13791810 true "" "if paso_un_dia? [plotxy dias_transcurridos sum [biomasa] of patches]"
+"umbral colapso" 1.0 0 -1069655 true "" "plotxy dias_transcurridos count celdas_mar * K * PORCENTAJE_BIOMASA_COLAPSO / 100"
+"umbral crisis" 1.0 0 -526419 true "" "plotxy dias_transcurridos count celdas_mar * K * PORCENTAJE_BIOMASA_CRISIS / 100"
 
 MONITOR
-155
-55
-212
-100
+385
+460
+442
+505
 NIL
 timer
 2
@@ -794,24 +850,6 @@ PENS
 "total" 1.0 0 -16777216 true "" "if paso_un_mes? [ plotxy meses_transcurridos sum capturas_mes ]"
 
 PLOT
-1835
-130
-2035
-250
-distancia recorrida/viaje promedio dia
-día
-distancia
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"media" 1.0 0 -16777216 true "" "if paso_un_dia? and distancias_recorridas_dia != [] [ plotxy dias_transcurridos mean distancias_recorridas_dia ]"
-
-PLOT
 730
 130
 930
@@ -827,25 +865,7 @@ true
 false
 "" ""
 PENS
-"media" 1.0 0 -16777216 true "" "if paso_un_mes? [ plotxy meses_transcurridos mean distancias_recorridas_mes ]"
-
-PLOT
-1835
-250
-2035
-370
-horas en mar/viaje promedio dia
-día
-horas
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"media" 1.0 0 -16777216 true "" "if paso_un_dia? and horas_en_mar_dia != [] [ plotxy dias_transcurridos mean horas_en_mar_dia ]"
+"media" 1.0 0 -16777216 true "" "if paso_un_mes? [ ifelse distancias_recorridas_mes != [] [ plotxy meses_transcurridos mean distancias_recorridas_mes ][ plotxy meses_transcurridos 0 ]]"
 
 PLOT
 730
@@ -863,25 +883,7 @@ true
 false
 "" ""
 PENS
-"media" 1.0 0 -16777216 true "" "if paso_un_mes? [ plotxy meses_transcurridos mean horas_en_mar_mes ]"
-
-PLOT
-2035
-130
-2235
-250
-gasto gas/viaje promedio dia
-día
-$
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"media" 1.0 0 -16777216 true "" "if paso_un_dia? and gasto_gas_dia != [] [ plotxy dias_transcurridos mean gasto_gas_dia ]"
+"media" 1.0 0 -16777216 true "" "if paso_un_mes? [ ifelse horas_en_mar_mes != [] [ plotxy meses_transcurridos mean horas_en_mar_mes ][ plotxy meses_transcurridos 0 ]]"
 
 PLOT
 930
@@ -899,12 +901,12 @@ true
 false
 "" ""
 PENS
-"media" 1.0 0 -16777216 true "" "if paso_un_mes? and gasto_gas_mes != [] [ plotxy meses_transcurridos mean gasto_gas_mes ]"
+"media" 1.0 0 -16777216 true "" "if paso_un_mes? [ ifelse gasto_gas_mes != [] [ plotxy meses_transcurridos mean gasto_gas_mes ][ plotxy meses_transcurridos 0 ]]"
 
 SLIDER
-1350
+1720
 55
-1535
+1905
 88
 HORAS_DESCANSAR
 HORAS_DESCANSAR
@@ -917,9 +919,9 @@ NIL
 HORIZONTAL
 
 SLIDER
-1350
+1720
 90
-1535
+1905
 123
 PROB_EXPLORAR
 PROB_EXPLORAR
@@ -932,9 +934,9 @@ NIL
 HORIZONTAL
 
 SLIDER
-1350
+1720
 125
-1535
+1905
 158
 RADIO_EXPLORAR
 RADIO_EXPLORAR
@@ -947,9 +949,9 @@ NIL
 HORIZONTAL
 
 SLIDER
-1350
+1720
 265
-1535
+1905
 298
 VELOCIDAD
 VELOCIDAD
@@ -962,9 +964,9 @@ NIL
 HORIZONTAL
 
 SLIDER
-1350
+1720
 230
-1535
+1905
 263
 CAPTURABILIDAD
 CAPTURABILIDAD
@@ -977,9 +979,9 @@ NIL
 HORIZONTAL
 
 SLIDER
-1350
+1720
 300
-1535
+1905
 333
 CAPACIDAD_MAXIMA
 CAPACIDAD_MAXIMA
@@ -992,9 +994,9 @@ NIL
 HORIZONTAL
 
 SLIDER
-1350
+1720
 195
-1535
+1905
 228
 DIAS_MAXIMOS_EN_MAR
 DIAS_MAXIMOS_EN_MAR
@@ -1007,9 +1009,9 @@ NIL
 HORIZONTAL
 
 SLIDER
-1350
+1720
 160
-1535
+1905
 193
 NUM_AMIGOS
 NUM_AMIGOS
@@ -1022,9 +1024,9 @@ NIL
 HORIZONTAL
 
 SLIDER
-1350
+1720
 455
-1535
+1905
 488
 PRECIO_BIOMASA
 PRECIO_BIOMASA
@@ -1037,24 +1039,24 @@ NIL
 HORIZONTAL
 
 SLIDER
-1350
+1720
 490
-1535
+1905
 523
 PRECIO_LITRO_GAS
 PRECIO_LITRO_GAS
 0
 1000
 100.0
-1
+5
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1350
+1720
 335
-1535
+1905
 368
 LITROS_POR_DISTANCIA
 LITROS_POR_DISTANCIA
@@ -1067,9 +1069,9 @@ NIL
 HORIZONTAL
 
 SLIDER
-1350
+1720
 370
-1535
+1905
 403
 LITROS_POR_HORA_PESCA
 LITROS_POR_HORA_PESCA
@@ -1082,9 +1084,9 @@ NIL
 HORIZONTAL
 
 INPUTBOX
-1540
+1910
 55
-1697
+2067
 120
 K
 200.0
@@ -1093,9 +1095,9 @@ K
 Number
 
 INPUTBOX
-1540
+1910
 185
-1697
+2067
 250
 M
 0.001
@@ -1104,34 +1106,15 @@ M
 Number
 
 INPUTBOX
-1540
+1910
 120
-1697
+2067
 185
 R
 0.7
 1
 0
 Number
-
-PLOT
-1835
-370
-2035
-520
-ganancia/viaje promedio dia
-día
-$
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"media" 1.0 0 -16777216 true "" "if paso_un_dia? and ganancias_dia != [] [plotxy dias_transcurridos mean ganancias_dia ]"
-"0" 1.0 0 -4539718 true "" "plotxy dias_transcurridos 0"
 
 PLOT
 730
@@ -1149,7 +1132,7 @@ true
 false
 "" ""
 PENS
-"media" 1.0 0 -16777216 true "" "if paso_un_mes? and ganancias_mes != [] [plotxy meses_transcurridos mean ganancias_mes ]"
+"media" 1.0 0 -16777216 true "" "if paso_un_mes? [ifelse ganancias_mes != [] [plotxy meses_transcurridos mean ganancias_mes ][ plotxy meses_transcurridos 0 ]]"
 "0" 1.0 0 -4539718 true "" "plotxy meses_transcurridos 0"
 
 PLOT
@@ -1168,12 +1151,12 @@ true
 false
 "" ""
 PENS
-"media" 1.0 0 -16777216 true "" "if paso_un_mes? [ plotxy meses_transcurridos mean capturas_mes ]"
+"media" 1.0 0 -16777216 true "" "if paso_un_mes? [ ifelse capturas_mes != [] [ plotxy meses_transcurridos mean capturas_mes ] [plotxy meses_transcurridos 0 ]]"
 
 SLIDER
-1350
+1720
 405
-1535
+1905
 438
 NUM_TRIPULANTES
 NUM_TRIPULANTES
@@ -1184,24 +1167,6 @@ NUM_TRIPULANTES
 1
 NIL
 HORIZONTAL
-
-PLOT
-2035
-250
-2235
-370
-total viajes dia
-día
-num. viajes
-0.0
-10.0
-0.0
-10.0
-true
-false
-"" ""
-PENS
-"total" 1.0 0 -16777216 true "" "if paso_un_dia? [ plotxy dias_transcurridos num_viajes_dia ]"
 
 PLOT
 930
@@ -1237,15 +1202,15 @@ true
 false
 "" ""
 PENS
-"media" 1.0 0 -16777216 true "" "if paso_un_mes? [ plotxy meses_transcurridos mean [salario_mensual] of embarcaciones ]"
+"media" 1.0 0 -16777216 true "" "if paso_un_mes? and any? embarcaciones [ plotxy meses_transcurridos mean [salario_mensual] of embarcaciones ]"
 "umbral" 1.0 0 -1069655 true "" "plotxy meses_transcurridos SALARIO_MIN_MENSUAL"
 "0" 1.0 0 -4539718 true "" "plotxy meses_transcurridos 0"
 
 SLIDER
-1540
-455
-1735
-488
+2095
+340
+2315
+373
 SALARIO_MIN_MENSUAL
 SALARIO_MIN_MENSUAL
 0
@@ -1255,6 +1220,251 @@ SALARIO_MIN_MENSUAL
 1
 NIL
 HORIZONTAL
+
+TEXTBOX
+1725
+30
+1875
+48
+PESCA
+12
+0.0
+1
+
+TEXTBOX
+1910
+30
+2060
+48
+ECOLOGIA
+12
+0.0
+1
+
+TEXTBOX
+2095
+245
+2245
+263
+JUGABILIDAD
+12
+0.0
+1
+
+SLIDER
+1535
+490
+1707
+523
+LONG_TIERRA
+LONG_TIERRA
+0
+10
+6.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+1535
+465
+1685
+483
+PAISAJE
+12
+0.0
+1
+
+SLIDER
+10
+285
+240
+318
+LARGO_ZONA_PROTEGIDA
+LARGO_ZONA_PROTEGIDA
+0
+25
+0.0
+5
+1
+NIL
+HORIZONTAL
+
+SLIDER
+10
+320
+240
+353
+ANCHO_ZONA_PROTEGIDA
+ANCHO_ZONA_PROTEGIDA
+0
+30
+0.0
+5
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2090
+55
+2270
+88
+HORAS_ITERACION
+HORAS_ITERACION
+1
+24
+24.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2090
+90
+2270
+123
+LONGITUD_CELDA
+LONGITUD_CELDA
+1
+20
+1.0
+1
+1
+NIL
+HORIZONTAL
+
+TEXTBOX
+2090
+30
+2240
+48
+GLOBALES
+12
+0.0
+1
+
+SLIDER
+2095
+375
+2315
+408
+MAX_MESES_CRISIS_PESCA
+MAX_MESES_CRISIS_PESCA
+0
+24
+12.0
+1
+1
+NIL
+HORIZONTAL
+
+SWITCH
+2095
+270
+2290
+303
+DETENER_SI_PIERDE?
+DETENER_SI_PIERDE?
+1
+1
+-1000
+
+SWITCH
+2095
+305
+2290
+338
+MOSTRAR_MENSAJES?
+MOSTRAR_MENSAJES?
+0
+1
+-1000
+
+SLIDER
+2095
+445
+2360
+478
+PORCENTAJE_BIOMASA_CRISIS
+PORCENTAJE_BIOMASA_CRISIS
+0
+100
+50.0
+1
+1
+%
+HORIZONTAL
+
+SLIDER
+2095
+480
+2360
+513
+PORCENTAJE_BIOMASA_COLAPSO
+PORCENTAJE_BIOMASA_COLAPSO
+0
+100
+25.0
+1
+1
+%
+HORIZONTAL
+
+TEXTBOX
+10
+30
+160
+48
+PESCA
+12
+0.0
+1
+
+TEXTBOX
+10
+260
+160
+278
+CONSERVACION
+12
+0.0
+1
+
+SWITCH
+2095
+410
+2315
+443
+INACTIVAR_PESCA_COLAPSO?
+INACTIVAR_PESCA_COLAPSO?
+0
+1
+-1000
+
+MONITOR
+1375
+20
+1550
+65
+NIL
+dias_pesca_sostenible
+17
+1
+11
+
+MONITOR
+1375
+65
+1550
+110
+NIL
+dias_biomasa_sostenible
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1359,6 +1569,23 @@ Polygon -16777216 true false 150 255 135 225 120 150 135 120 150 105 165 120 180
 Circle -16777216 true false 135 90 30
 Line -16777216 false 150 105 195 60
 Line -16777216 false 150 105 105 60
+
+camaron
+false
+0
+Polygon -13791810 true false 120 60 180 135 210 45
+Polygon -11221820 true false 210 45 255 120 180 135 180 135
+Polygon -11221820 true false 255 120 180 135 255 195
+Polygon -11221820 true false 180 135 180 240 255 195
+Polygon -11221820 true false 180 180 180 240 105 210
+Polygon -11221820 true false 150 195 60 180 105 210
+Polygon -11221820 true false 120 195 60 135 60 180
+Polygon -13791810 true false 60 180 30 150 30 120 60 165
+Polygon -13791810 true false 60 165 45 120 45 90 75 150
+Circle -16777216 true false 165 60 30
+Polygon -13791810 true false 180 135 135 150 180 150
+Polygon -13791810 true false 180 150 135 165 180 165
+Polygon -13791810 true false 180 165 135 180 180 180
 
 car
 false
@@ -1506,6 +1733,12 @@ Polygon -7500403 true true 135 105 90 60 45 45 75 105 135 135
 Polygon -7500403 true true 165 105 165 135 225 105 255 45 210 60
 Polygon -7500403 true true 135 90 120 45 150 15 180 45 165 90
 
+plataforma
+false
+0
+Polygon -1 true false 150 30 15 255 285 255
+Polygon -7500403 true true 151 99 225 223 75 224
+
 sheep
 false
 15
@@ -1546,6 +1779,16 @@ Circle -16777216 true false 30 30 240
 Circle -7500403 true true 60 60 180
 Circle -16777216 true false 90 90 120
 Circle -7500403 true true 120 120 60
+
+tortuga
+true
+0
+Polygon -13840069 true false 215 204 240 233 246 254 228 266 215 252 193 210
+Polygon -13840069 true false 195 90 225 75 245 75 260 89 269 108 261 124 240 105 225 105 210 105
+Polygon -13840069 true false 105 90 75 75 55 75 40 89 31 108 39 124 60 105 75 105 90 105
+Polygon -13840069 true false 132 85 134 64 107 51 108 17 150 2 192 18 192 52 169 65 172 87
+Polygon -13840069 true false 85 204 60 233 54 254 72 266 85 252 107 210
+Polygon -7500403 true true 119 75 179 75 209 101 224 135 220 225 175 261 128 261 81 224 74 135 88 99
 
 tree
 false
