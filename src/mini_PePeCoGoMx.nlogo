@@ -1,11 +1,11 @@
 breed [ embarcaciones embarcacion ]
 breed [ puertos puerto ]
-directed-link-breed [ amistades amistad ]
-
+breed [ plataformas plataforma ]
+breed [ tortugas tortuga ]
 breed [ logos logo ]
 breed [ indicadores indicador ]
 
-indicadores-own [ elemento ]
+directed-link-breed [ amistades amistad ]
 
 globals [
   celdas_tierra
@@ -34,17 +34,33 @@ globals [
   num_viajes_mes
   num_viajes_acumulado
 
+  ;; union-find
+  etiquetas
+
   ;; jugabilidad
   meses_crisis_pesca
+  meses_crisis_hidrocarburo
   perdio?
   mensajes_juego
   memoria_mensajes
-
   pesca_sostenible?
   biomasa_sostenible?
-
+  hidrocarburo_sostenible?
+  tortugas_sostenible?
   dias_pesca_sostenible
   dias_biomasa_sostenible
+  dias_hidrocarburo_sostenible
+  dias_tortugas_sostenible
+
+  ;; hidrocarburo
+  numero_derrames
+  produccion_mes_hidrocarburo
+  ganancia_mes_hidrocarburo
+  produccion_hidrocarburo_acumulada
+  ganancia_hidrocarburo_acumulada
+
+  ;; visualizacion
+  num_zonas
 ]
 
 patches-own [
@@ -58,8 +74,16 @@ patches-own [
   parent
   transitable_embarcacion?
 
+  etiqueta
+
   ruta_puerto_sitio
   ruta_sitio_puerto
+
+  hidrocarburo
+  derramado?
+  tiempo_desde_derrame
+
+  num_zona
 ]
 
 embarcaciones-own [
@@ -80,7 +104,17 @@ embarcaciones-own [
   ganancia_por_hora_ultimo_viaje
   gasto_gas
   salario_mensual
+  tortugas_matadas
+  saldo_subsidio_gas
 ]
+
+plataformas-own [
+  produccion
+  tiempo_inactivo
+  activo?
+]
+
+indicadores-own [ elemento ]
 
 to INICIALIZAR
   clear-all
@@ -88,14 +122,17 @@ to INICIALIZAR
   init_globales
   init_paisaje
   init_ecologia
+  init_hidrocarburo
   init_zonificaion
   init_puerto
+  init_plataformas
   init_embarcaciones
   init_rutas
   init_registros
-
+  init_tortugas
   init_jugabilidad
   init_indicadores
+  init_visualizacion
 
   colorear_celdas
   reset-ticks
@@ -104,24 +141,38 @@ end
 to EJECUTAR
   if ticks = 0 [reset-timer]
 
+  ;; jugabilidad
   if paso_un_dia? [ actualizar_tiempos_sostenibilidad ]
   if paso_un_mes? [ revisar_umbrales_juego ]
   if MOSTRAR_MENSAJES? and mensajes_juego != [] [ foreach mensajes_juego [ mj -> user-message mj ] set mensajes_juego [] ]
   if DETENER_SI_PIERDE? and perdio? [ stop ]
 
+  ;; registros
   if paso_un_mes? [
     reiniciar_registros_mensuales
     ask embarcaciones [ set salario_mensual 0 ]
   ]
 
+  ;; pesca
   ask embarcaciones [ paso_embarcacion ]
+  ;; ecología
   if paso_un_dia? [ ask celdas_mar [ dispersion ] ]
   if paso_un_ano? [ ask celdas_mar [ dinamica_poblacional ]]
+  ;; hidrocarburo
+  if paso_un_dia? [
+    ask plataformas [ extraer_hidrocarburo ]
+    dinamica_derrame
+    calcular_ganancia_hidrocarburo
+  ]
+  if paso_un_mes? [ subsidiar_gasolina  ]
+
+  ;; tortugas
+  if paso_un_dia? [ ask tortugas [ moverse_tortuga ] ]
+  if paso_un_ano? [ ask tortugas [ reproducirse_tortuga ] ]
+  mortalidad_sobrepoblacion
 
   colorear_celdas
-
   actualizar_fecha
-
   tick
 end
 
@@ -145,6 +196,9 @@ to init_registros
   set ganancia_acumulada 0
   set num_viajes_mes 0
   set num_viajes_acumulado 0
+
+  set produccion_mes_hidrocarburo []
+  set ganancia_mes_hidrocarburo []
 end
 
 to init_paisaje
@@ -187,6 +241,10 @@ to init_zonificaion
     pycor <= y_origen_zona_protegida
   ][ set zonificacion "protegido" ]
 
+  actualizar_zonificacion
+end
+
+to actualizar_zonificacion
   set celdas_restriccion patches with [ zonificacion = "restriccion" ]
   set celdas_libre patches with [ zonificacion = "libre" ]
   set celdas_protegido patches with [ zonificacion = "protegido" ]
@@ -216,24 +274,70 @@ to init_embarcaciones
     set ganancia_por_hora 0
     set ganancia_por_hora_ultimo_viaje 0
     set gasto_gas 0
+    set saldo_subsidio_gas SUBSIDIO_MENSUAL_GASOLINA
   ]
 
-
   ifelse count embarcaciones > NUM_AMIGOS [
-    ask embarcaciones [
-      create-amistades-to (n-of NUM_AMIGOS other embarcaciones) [hide-link]
-    ]
+    ask embarcaciones [ create-amistades-to (n-of NUM_AMIGOS other embarcaciones) [hide-link] ]
   ][
     print (word "Advertencia: No hay suficientes embarcaciones en el puerto para formar " NUM_AMIGOS " amistades. No se creará ninguna amistad.")
   ]
-
 end
 
 to init_rutas
   actualizar_transitables_embarcaciones
   ask celdas_libre [
     set ruta_puerto_sitio obtener_ruta_A_star ([patch-here] of one-of puertos) self
-;    set ruta_sitio_puerto obtener_ruta_A_star self ([patch-here] of one-of puertos)
+  ]
+end
+
+to init_hidrocarburo
+  ask celdas_mar [
+    set hidrocarburo HIDROCARBURO_INICIAL
+    set derramado? false
+    set tiempo_desde_derrame 0
+  ]
+end
+
+to init_plataformas
+  let intentos_crear_mundo 1
+  let intentos_maximos 100
+  print (word "Intento " intentos_crear_mundo " de crear un mapa jugable.")
+  instalar_plataformas
+  while [ not todos_los_sitios_son_accesibles? and (intentos_crear_mundo <= intentos_maximos) ][
+    ask plataformas [ die ]
+    ask celdas_libre [ set zonificacion "libre" ]
+    instalar_plataformas
+    set intentos_crear_mundo intentos_crear_mundo + 1
+    print (word "Intento " intentos_crear_mundo " de crear un mapa jugable.")
+  ]
+  if intentos_crear_mundo > intentos_maximos [
+    user-message "Es difícil generar un mapa con los parámetros introducidos. /n Los mapas geneados no son jugables (los pescadores no se pueden mover en él). /n Intenta inicializar de nuevo el modelo y/o cambiar los parámetros del modelo."
+    stop
+  ]
+  actualizar_zonificacion
+end
+
+to instalar_plataformas
+  create-plataformas NUMERO_PLATAFORMAS [
+    set shape "plataforma"
+    set color gray - 4
+    set produccion 0
+    set tiempo_inactivo 0
+    set activo? true
+    move-to one-of celdas_libre
+    ask celdas_libre at-points vecindad_moore RADIO_RESTRICCION true [
+      set zonificacion "restriccion"
+    ]
+  ]
+end
+
+to init_tortugas
+  create-tortugas POB_INICIAL_TORTUGAS [
+    set shape "tortuga"
+    set color brown
+    set size 0.5
+    move-to one-of celdas_mar
   ]
 end
 
@@ -244,23 +348,28 @@ to init_jugabilidad
   set memoria_mensajes n-values 4 [false]
 
   set meses_crisis_pesca 0
+  set meses_crisis_hidrocarburo 0
 
   set pesca_sostenible? true
   set biomasa_sostenible? true
+  set hidrocarburo_sostenible? true
+  set tortugas_sostenible? true
 
   set dias_pesca_sostenible 0
   set dias_biomasa_sostenible 0
+  set dias_hidrocarburo_sostenible 0
+  set dias_tortugas_sostenible 0
 end
 
 to init_indicadores
   let elementos ["pesca" "biomasa" "hidrocarburo" "tortugas" ]
-  let inicio_x 34
-  let inicio_y 20
+  let inicio_x world-width - 2
+  let inicio_y (world-height / 2 ) + 4
 
   let pos (list (list inicio_x inicio_y) (list inicio_x (inicio_y - 2)) (list inicio_x (inicio_y - 4)) (list inicio_x (inicio_y - 6)))
   let _shapes [ "boat" "camaron" "plataforma" "tortuga" ]
   let _colors (list red pink (gray - 4) (brown + 1) )
-  let poner? (list (any? embarcaciones) true false false)
+  let poner? (list (any? embarcaciones) true (any? plataformas) (any? tortugas))
 
   (foreach elementos pos _shapes _colors poner? [
     [el p s c p?] ->
@@ -282,6 +391,10 @@ to init_indicadores
   ])
 end
 
+to init_visualizacion
+  formar_vecindades
+  dibujar_bordes_zonas
+end
 
 to colorear_celdas
   if COLOREAR_POR = "tipo" [
@@ -289,16 +402,56 @@ to colorear_celdas
     ask celdas_mar [ set pcolor sky ]
   ]
 
-  if COLOREAR_POR = "biomasa" [
-    ask patches [ set pcolor scale-color sky biomasa (K * 2) 0 ]
-  ]
+  if COLOREAR_POR = "biomasa" [ colorear_biomasa ]
 
   if COLOREAR_POR = "zonificacion" [
     ask celdas_NA [ set pcolor white ]
     ask celdas_libre [ set pcolor blue ]
-    ask celdas_protegido   [ set pcolor lime + 2 ]
-    ask celdas_restriccion [ set pcolor red + 1 ]
   ]
+
+  if COLOREAR_POR = "biomasa y zonificacion" [
+    colorear_biomasa
+    colorear_zona_restringida_protegida
+  ]
+
+  if COLOREAR_POR = "biomasa y derrames" [
+    colorear_biomasa
+    colorear_derrames
+  ]
+
+  if COLOREAR_POR = "hidrocarburo" [
+    ask patches [ set pcolor scale-color black hidrocarburo HIDROCARBURO_INICIAL 0 ]
+  ]
+
+  if COLOREAR_POR = "derrames" [
+    ask patches [
+      set pcolor white
+    ]
+    colorear_derrames
+  ]
+
+  if COLOREAR_POR = "biomasa, zonificacion y derrames" [
+    colorear_biomasa
+    colorear_zona_restringida_protegida
+    colorear_derrames
+  ]
+end
+
+to colorear_derrames
+  if any? celdas_mar with [ derramado? ][
+    ask celdas_mar with [ derramado? ] [
+      set pcolor black
+    ]
+  ]
+end
+
+to colorear_biomasa
+  ask patches [ set pcolor scale-color cyan biomasa (K * 2) 0 ]
+end
+
+to colorear_zona_restringida_protegida
+  ask celdas_protegido   [ set pcolor lime + 2 ]
+  ask celdas_restriccion [ set pcolor red + 1 ]
 end
 
 to paso_embarcacion
@@ -346,9 +499,7 @@ to planear
     tipo_planeacion = "regreso" [
       set destino [patch-here] of one-of puertos
       set ruta reverse [ruta_puerto_sitio] of patch-here
-    ]
-    )
-;  set ruta obtener_ruta_A_star patch-here destino
+    ])
   set indice_ruta 0
   set estado "moviendose"
 end
@@ -415,6 +566,12 @@ to pescar
   set biomasa biomasa - captura_sitio
   set capturas_viaje lput captura_sitio capturas_viaje
 
+  ;; mortalidad tortugas
+  if any? tortugas-here and random-float 1.0 < PROB_MORTALIDAD_TORTUGA_PESCA [
+    ask one-of tortugas-here [ die ]
+    set tortugas_matadas tortugas_matadas + 1
+  ]
+
   set horas_en_mar horas_en_mar + 1
   set tiempo_restante_iteracion tiempo_restante_iteracion - 1
   set sitios_visitados lput patch-here sitios_visitados
@@ -442,9 +599,19 @@ to pescar
 end
 
 to desembarcar
-
-  set gasto_gas PRECIO_LITRO_GAS * LITROS_POR_DISTANCIA * LONGITUD_CELDA * distancia_recorrida + LITROS_POR_HORA_PESCA * (length sitios_visitados)
   let ingresos_captura (sum capturas_viaje) * PRECIO_BIOMASA
+  set gasto_gas PRECIO_LITRO_GAS * LITROS_POR_DISTANCIA * LONGITUD_CELDA * distancia_recorrida + LITROS_POR_HORA_PESCA * (length sitios_visitados)
+
+  if saldo_subsidio_gas > 0 [
+    ifelse saldo_subsidio_gas - gasto_gas > 0 [
+      set saldo_subsidio_gas saldo_subsidio_gas - gasto_gas
+      set gasto_gas 0
+    ][
+     set saldo_subsidio_gas 0
+     set gasto_gas gasto_gas - saldo_subsidio_gas
+    ]
+  ]
+
   set ganancia ingresos_captura - gasto_gas
   set ganancia_por_hora ganancia / horas_en_mar
   set salario_mensual salario_mensual + (ganancia / NUM_TRIPULANTES)
@@ -488,6 +655,9 @@ to reiniciar_registros_mensuales
   set gasto_gas_mes []
   set ganancias_mes []
   set num_viajes_mes 0
+
+  set produccion_mes_hidrocarburo []
+  set ganancia_mes_hidrocarburo []
 end
 
 to dispersion
@@ -631,6 +801,49 @@ to revisar_umbrales_juego
   ][
     actualizar_indicador "biomasa" "viable"
   ]
+
+  if any? plataformas [
+    ifelse sum ganancia_mes_hidrocarburo < 0 [
+      set meses_crisis_hidrocarburo meses_crisis_hidrocarburo + 1
+    ][
+      set meses_crisis_hidrocarburo 0
+    ]
+    ifelse meses_crisis_hidrocarburo >= 1 or meses_crisis_hidrocarburo >= MAX_MESES_CRISIS_PESCA [
+      ifelse  meses_crisis_hidrocarburo >= MAX_MESES_CRISIS_HIDROCARBURO [
+        set perdio? true
+        set hidrocarburo_sostenible? false
+        if not (item 2 memoria_mensajes) [
+          set memoria_mensajes replace-item 2 memoria_mensajes true
+          let mensaje_juego (word "Colapso de la industria petrolera: La producción de petroleo ya no es rentable. No ha habido inresos por " meses_crisis_hidrocarburo " meses seguidos.")
+          set mensajes_juego lput mensaje_juego mensajes_juego
+        ]
+        actualizar_indicador "hidrocarburo" "colapso"
+      ][
+        actualizar_indicador "hidrocarburo" "crisis"
+      ]
+    ][
+      actualizar_indicador "hidrocarburo" "viable"
+    ]
+  ]
+
+  if any? tortugas [
+    ifelse count tortugas < POB_INICIAL_TORTUGAS * PORCENTAJE_TORTUGAS_CRISIS / 100 [
+      ifelse count tortugas < POB_INICIAL_TORTUGAS * PORCENTAJE_TORTUGAS_COLAPSO / 100 [
+        set perdio? true
+        set tortugas_sostenible? false
+        if not (item 3 memoria_mensajes) [
+          set memoria_mensajes replace-item 3 memoria_mensajes true
+          let mensaje_juego (word "Colapso biológico: la población de tortugas se redujo más del " (100 - PORCENTAJE_TORTUGAS_COLAPSO ) "%. La población de tortugas está en un estado crítico.")
+          set mensajes_juego lput mensaje_juego mensajes_juego
+        ]
+        actualizar_indicador "tortugas" "colapso"
+      ][
+        actualizar_indicador "tortugas" "crisis"
+      ]
+    ][
+      actualizar_indicador "tortugas" "viable"
+    ]
+  ]
 end
 
 to actualizar_indicador [ ele edo ]
@@ -645,17 +858,218 @@ end
 to actualizar_tiempos_sostenibilidad
   if any? embarcaciones and pesca_sostenible? [ set dias_pesca_sostenible dias_pesca_sostenible + 1]
   if biomasa_sostenible? [ set dias_biomasa_sostenible dias_biomasa_sostenible + 1 ]
+  if any? plataformas and hidrocarburo_sostenible? [ set dias_hidrocarburo_sostenible dias_hidrocarburo_sostenible + 1 ]
+  if any? tortugas and tortugas_sostenible? [ set dias_tortugas_sostenible dias_tortugas_sostenible + 1 ]
 end
 
+to-report todos_los_sitios_son_accesibles?
+  formar_componentes
+  let celdas_navegables patches with [zonificacion = "libre" or zonificacion = "protegido" or tipo = "puerto" ]
+  ifelse length remove-duplicates [etiqueta] of celdas_navegables = 1
+  [ report true ]
+  [ report false ]
+end
+
+to-report encontrar [x]
+  let y x
+  while [ (item y etiquetas) != y ][
+    set y (item y etiquetas)
+  ]
+  while [ (item x etiquetas) != x ][
+    let z (item x etiquetas)
+    set etiquetas replace-item x etiquetas y
+    set x z
+  ]
+  report y
+end
+
+to union [x y]
+  set etiquetas replace-item (encontrar x) etiquetas (encontrar y)
+end
+
+to formar_componentes
+  let etiqueta_max 0
+  set etiquetas range count patches
+  ask patches [ set etiqueta 0 ]
+
+  foreach sort patches [
+    p ->
+    ask p [
+      if zonificacion = "libre" or zonificacion = "protegido" or tipo = "puerto" [
+        let atras patch-at-heading-and-distance 270 1
+        let arriba patch-at-heading-and-distance 0 1
+        (ifelse
+          (atras = nobody or [etiqueta] of atras = 0) and (arriba = nobody or [etiqueta] of arriba = 0) [
+            set etiqueta_max etiqueta_max + 1
+            set etiqueta etiqueta_max
+          ]
+          (atras != nobody and [etiqueta] of atras != 0) and (arriba = nobody or [etiqueta] of arriba = 0) [
+            set etiqueta encontrar [etiqueta] of atras
+          ]
+          (atras = nobody or [etiqueta] of atras = 0) and (arriba != nobody and [etiqueta] of arriba != 0) [
+            set etiqueta encontrar [etiqueta] of arriba
+          ]
+          [
+            union [etiqueta] of atras [etiqueta] of arriba
+            set etiqueta encontrar [etiqueta] of atras
+          ]
+        )
+      ]
+    ]
+  ]
+  foreach sort patches [
+    p -> ask p [ set etiqueta encontrar etiqueta ]
+  ]
+end
+
+to calcular_ganancia_hidrocarburo
+  let ingreso_dia_hidrocarburo sum [produccion] of plataformas * PRECIO_HIDROCARBURO
+  let costo_dia_hidrocarburo (count plataformas ) * COSTO_OPERACION_PLATAFORMA
+  let balance (ingreso_dia_hidrocarburo - costo_dia_hidrocarburo)
+  set ganancia_mes_hidrocarburo lput balance ganancia_mes_hidrocarburo
+  set ganancia_hidrocarburo_acumulada ganancia_hidrocarburo_acumulada + balance
+end
+
+to extraer_hidrocarburo
+  if not hidrocarburo_sostenible? and INACTIVAR_HIDROCARBURO_COLAPSO? [ set activo? false set color gray + 2]
+
+  ifelse activo? and tiempo_inactivo <= 0 [
+    set produccion min (list EXTRACCION_MAX_HIDROCARBURO (hidrocarburo * TASA_DECLINACION_HIDROCARBURO))
+    set produccion_mes_hidrocarburo lput produccion produccion_mes_hidrocarburo
+    set produccion_hidrocarburo_acumulada produccion_hidrocarburo_acumulada + produccion
+    set hidrocarburo hidrocarburo - produccion
+  ][
+    set produccion 0
+  ]
+end
+
+to dinamica_derrame
+  if any? celdas_mar with [ derramado? ][ extender_derrame ]
+
+  if any? plataformas with [ tiempo_inactivo = 0 and activo? ] and random-float 1.0 < PROB_OCURRENCIA_DERRAME [
+    let origen one-of plataformas with [ tiempo_inactivo = 0 and activo? ]
+    ask origen [ set tiempo_inactivo TIEMPO_DERRAMADO set color gray + 3 ]
+    ask [patch-here] of origen [
+      set derramado? true
+      set tiempo_desde_derrame 0
+      set ganancia_mes_hidrocarburo lput (- COSTO_POR_CELDA_DERRAMADA) ganancia_mes_hidrocarburo
+    ]
+    set numero_derrames numero_derrames + 1
+  ]
+
+  if any? plataformas with [ tiempo_inactivo > 0 and activo? ][
+    ask plataformas with [ tiempo_inactivo > 0 ] [
+      set tiempo_inactivo tiempo_inactivo - 1
+      if tiempo_inactivo <= 0 [ set color gray - 4 ]
+    ]
+  ]
+end
+
+to extender_derrame
+  let celdas_derramado celdas_mar with [derramado?]
+  ask celdas_derramado with [tiempo_desde_derrame = 1 ][
+    ask neighbors4 with [ tipo = "mar" and not derramado?][
+      if random-float 1.0 < PROB_EXTENSION_DERRAME [
+        set derramado? true
+        set tiempo_desde_derrame 0
+        set biomasa biomasa - (biomasa * PROB_MORTALIDAD_DERRAME)
+        set ganancia_mes_hidrocarburo lput (- COSTO_POR_CELDA_DERRAMADA) ganancia_mes_hidrocarburo
+      ]
+    ]
+  ]
+  ask celdas_derramado [
+    if random-float 1.0 < PROB_MORTALIDAD_TORTUGA_DERRAME [
+      ask tortugas-here [ die ]
+    ]
+    set tiempo_desde_derrame tiempo_desde_derrame + 1
+    if tiempo_desde_derrame > TIEMPO_DERRAMADO [
+      set derramado? false
+      set tiempo_desde_derrame -999
+    ]
+  ]
+end
+
+to moverse_tortuga
+  face one-of celdas_mar at-points vecindad_moore 1 false
+  jump 1
+end
+
+to reproducirse_tortuga
+  hatch NUM_DESCENDIENTES
+end
+
+to mortalidad_sobrepoblacion
+  ask celdas_mar [
+    if count tortugas-here > CAPACIDAD_CARGA [
+      ask n-of (count tortugas-here - CAPACIDAD_CARGA) tortugas-here [ die ]
+    ]
+  ]
+end
+
+to formar_vecindades
+  ask patches [ set num_zona -9999 ]
+  let zona 1
+  ask celdas_mar [
+    if ((zonificacion = "restriccion" or  zonificacion = "protegido") and num_zona = -9999) [
+      formar_vecindad zona
+      set zona zona + 1
+    ]
+  ]
+  set num_zonas max [num_zona] of patches
+end
+
+to formar_vecindad [ zona ]
+  set num_zona zona
+  ask neighbors4 with [ zonificacion = [zonificacion] of myself and num_zona = -9999 ][
+    formar_vecindad zona
+  ]
+end
+
+to dibujar_borde_zona [_num_zona ]
+  ask patches with [ num_zona = _num_zona][
+    sprout 1 [
+      set heading 0
+      if zonificacion = "restriccion" [ set color red ]
+      if zonificacion = "protegido"   [ set color lime ]
+      set pen-size 1.5
+      setxy (xcor - 0.5) (ycor - 0.5)
+      repeat 4 [
+        let cuadro_izquierda patch-left-and-ahead 45 0.5
+        ifelse (cuadro_izquierda != nobody and [num_zona] of cuadro_izquierda != [num_zona] of myself) or cuadro_izquierda = nobody
+        [pen-down]
+        [pen-up]
+        fd .99
+        rt 90
+      ]
+      die
+    ]
+  ]
+end
+
+to dibujar_bordes_zonas
+;  clear-drawing
+  foreach (range 1 (num_zonas + 1)) [
+    i -> dibujar_borde_zona i
+  ]
+end
+
+to subsidiar_gasolina
+  if any? plataformas with [ activo? ]  [
+    ask embarcaciones [
+      set saldo_subsidio_gas SUBSIDIO_MENSUAL_GASOLINA
+      set ganancia_mes_hidrocarburo lput (- SUBSIDIO_MENSUAL_GASOLINA) ganancia_mes_hidrocarburo
+    ]
+  ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 245
-55
-721
-454
+60
+805
+549
 -1
 -1
-13.0
+12.0
 1
 10
 1
@@ -666,9 +1080,9 @@ GRAPHICS-WINDOW
 0
 1
 0
-35
+45
 0
-29
+39
 1
 1
 1
@@ -676,10 +1090,10 @@ ticks
 30.0
 
 BUTTON
-15
-425
-125
-458
+5
+385
+230
+420
 NIL
 INICIALIZAR
 NIL
@@ -693,10 +1107,10 @@ NIL
 1
 
 BUTTON
-15
-460
-125
-493
+5
+420
+230
+455
 NIL
 EJECUTAR
 T
@@ -710,35 +1124,35 @@ NIL
 1
 
 CHOOSER
-250
-10
-388
-55
+245
+550
+507
+595
 COLOREAR_POR
 COLOREAR_POR
-"tipo" "zonificacion" "biomasa"
-2
+"tipo" "zonificacion" "biomasa" "hidrocarburo" "derrames" "biomasa y zonificacion" "biomasa y derrames" "biomasa, zonificacion y derrames" "habitat tortugas"
+6
 
 SLIDER
 5
-55
-237
-88
+35
+235
+68
 NUMERO_EMBARCACIONES
 NUMERO_EMBARCACIONES
 0
-500
-200.0
-50
+200
+100.0
+20
 1
 NIL
 HORIZONTAL
 
 MONITOR
-250
-460
-370
-505
+400
+10
+520
+55
 NIL
 dias_transcurridos
 17
@@ -746,31 +1160,9 @@ dias_transcurridos
 11
 
 MONITOR
-250
-505
-370
-550
-NIL
-meses_transcurridos
-17
-1
-11
-
-MONITOR
-250
-550
-370
-595
-NIL
-anos_transcurridos
-17
-1
-11
-
-MONITOR
-670
+345
 10
-720
+395
 55
 dia
 (dias_transcurridos mod 30) + 1
@@ -779,9 +1171,9 @@ dia
 11
 
 MONITOR
-620
+295
 10
-670
+345
 55
 mes
 (meses_transcurridos mod 12) + 1
@@ -790,9 +1182,9 @@ mes
 11
 
 MONITOR
-570
+245
 10
-620
+295
 55
 año
 anos_transcurridos
@@ -801,10 +1193,10 @@ anos_transcurridos
 11
 
 PLOT
-1135
+1215
 10
-1335
-130
+1415
+150
 biomasa total
 dias
 biomasa
@@ -816,15 +1208,15 @@ true
 false
 "" ""
 PENS
-"biomasa" 1.0 0 -13791810 true "" "if paso_un_dia? [plotxy dias_transcurridos sum [biomasa] of patches]"
-"umbral colapso" 1.0 0 -1069655 true "" "plotxy dias_transcurridos count celdas_mar * K * PORCENTAJE_BIOMASA_COLAPSO / 100"
-"umbral crisis" 1.0 0 -526419 true "" "plotxy dias_transcurridos count celdas_mar * K * PORCENTAJE_BIOMASA_CRISIS / 100"
+"biomasa" 1.0 0 -13791810 true "" "if paso_un_mes? [plotxy meses_transcurridos sum [biomasa] of patches]"
+"umbral colapso" 1.0 0 -1069655 true "" "plotxy meses_transcurridos count celdas_mar * K * PORCENTAJE_BIOMASA_COLAPSO / 100"
+"umbral crisis" 1.0 0 -723837 true "" "plotxy meses_transcurridos count celdas_mar * K * PORCENTAJE_BIOMASA_CRISIS / 100"
 
 MONITOR
-385
-460
-442
-505
+525
+10
+645
+55
 NIL
 timer
 2
@@ -832,11 +1224,11 @@ timer
 11
 
 PLOT
-730
+810
 10
-930
-130
-captura total mensual
+1010
+150
+captura total
 mes
 captura
 0.0
@@ -850,13 +1242,13 @@ PENS
 "total" 1.0 0 -16777216 true "" "if paso_un_mes? [ plotxy meses_transcurridos sum capturas_mes ]"
 
 PLOT
-730
-130
-930
-250
-distancia recorrida/viaje promedio mes
+810
+150
+1010
+290
+distancia/viaje promedio
 mes
-distancia
+celdas
 0.0
 10.0
 0.0
@@ -868,11 +1260,11 @@ PENS
 "media" 1.0 0 -16777216 true "" "if paso_un_mes? [ ifelse distancias_recorridas_mes != [] [ plotxy meses_transcurridos mean distancias_recorridas_mes ][ plotxy meses_transcurridos 0 ]]"
 
 PLOT
-730
-250
-930
-370
-horas en mar/viaje promedio mes
+810
+290
+1010
+430
+horas en mar/viaje promedio
 mes
 horas
 0.0
@@ -886,28 +1278,28 @@ PENS
 "media" 1.0 0 -16777216 true "" "if paso_un_mes? [ ifelse horas_en_mar_mes != [] [ plotxy meses_transcurridos mean horas_en_mar_mes ][ plotxy meses_transcurridos 0 ]]"
 
 PLOT
-930
-130
-1130
-250
-gasto gas/viaje promedio mes
+1010
+150
+1210
+290
+gasto gas/viaje promedio
 mes
 $
 0.0
 10.0
 0.0
-10.0
+10000.0
 true
 false
-"" ""
+"" "set-plot-y-range 0 10000"
 PENS
 "media" 1.0 0 -16777216 true "" "if paso_un_mes? [ ifelse gasto_gas_mes != [] [ plotxy meses_transcurridos mean gasto_gas_mes ][ plotxy meses_transcurridos 0 ]]"
 
 SLIDER
-1720
-55
-1905
-88
+1660
+40
+1845
+73
 HORAS_DESCANSAR
 HORAS_DESCANSAR
 0
@@ -919,10 +1311,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1720
-90
-1905
-123
+1660
+75
+1845
+108
 PROB_EXPLORAR
 PROB_EXPLORAR
 0
@@ -934,10 +1326,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1720
-125
-1905
-158
+1660
+110
+1845
+143
 RADIO_EXPLORAR
 RADIO_EXPLORAR
 0
@@ -949,10 +1341,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1720
-265
-1905
-298
+1660
+250
+1845
+283
 VELOCIDAD
 VELOCIDAD
 0
@@ -964,10 +1356,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1720
-230
-1905
-263
+1660
+215
+1845
+248
 CAPTURABILIDAD
 CAPTURABILIDAD
 0
@@ -979,14 +1371,14 @@ NIL
 HORIZONTAL
 
 SLIDER
-1720
-300
-1905
-333
+5
+70
+235
+103
 CAPACIDAD_MAXIMA
 CAPACIDAD_MAXIMA
-0
-100
+1
+3
 1.0
 1
 1
@@ -994,10 +1386,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1720
-195
-1905
-228
+1660
+180
+1845
+213
 DIAS_MAXIMOS_EN_MAR
 DIAS_MAXIMOS_EN_MAR
 0
@@ -1009,10 +1401,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-1720
-160
-1905
-193
+1660
+145
+1845
+178
 NUM_AMIGOS
 NUM_AMIGOS
 0
@@ -1024,55 +1416,55 @@ NIL
 HORIZONTAL
 
 SLIDER
-1720
-455
-1905
-488
+1660
+440
+1845
+473
 PRECIO_BIOMASA
 PRECIO_BIOMASA
 0
 10000
 10000.0
-100
+10
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1720
-490
-1905
-523
+1660
+475
+1845
+508
 PRECIO_LITRO_GAS
 PRECIO_LITRO_GAS
 0
 1000
 100.0
-5
+10
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1720
-335
-1905
-368
+1660
+320
+1845
+353
 LITROS_POR_DISTANCIA
 LITROS_POR_DISTANCIA
 0
-100
+10
 1.0
-1
+0.1
 1
 NIL
 HORIZONTAL
 
 SLIDER
-1720
-370
-1905
-403
+1660
+355
+1845
+388
 LITROS_POR_HORA_PESCA
 LITROS_POR_HORA_PESCA
 0
@@ -1084,44 +1476,44 @@ NIL
 HORIZONTAL
 
 INPUTBOX
-1910
-55
-2067
-120
+1870
+45
+2027
+110
 K
-200.0
+100.0
 1
 0
 Number
 
 INPUTBOX
-1910
-185
-2067
-250
+1870
+110
+2027
+175
 M
-0.001
+8.0E-4
 1
 0
 Number
 
 INPUTBOX
-1910
-120
-2067
-185
+1870
+175
+2027
+240
 R
-0.7
+0.4
 1
 0
 Number
 
 PLOT
-730
-370
-930
-490
-ganancia/viaje promedio mes
+810
+430
+1010
+570
+ganancia/viaje promedio
 mes
 $
 0.0
@@ -1136,11 +1528,11 @@ PENS
 "0" 1.0 0 -4539718 true "" "plotxy meses_transcurridos 0"
 
 PLOT
-930
+1010
 10
-1130
-130
-captura promedio mes
+1210
+150
+captura/viaje promedio
 mes
 captura
 0.0
@@ -1154,10 +1546,10 @@ PENS
 "media" 1.0 0 -16777216 true "" "if paso_un_mes? [ ifelse capturas_mes != [] [ plotxy meses_transcurridos mean capturas_mes ] [plotxy meses_transcurridos 0 ]]"
 
 SLIDER
-1720
-405
-1905
-438
+1660
+390
+1845
+423
 NUM_TRIPULANTES
 NUM_TRIPULANTES
 0
@@ -1169,11 +1561,11 @@ NIL
 HORIZONTAL
 
 PLOT
-930
-250
-1130
-370
-total viajes mes
+1010
+290
+1210
+430
+total viajes
 mes
 num. viajes
 0.0
@@ -1187,30 +1579,30 @@ PENS
 "total" 1.0 0 -16777216 true "" "if paso_un_mes? [ plotxy meses_transcurridos num_viajes_mes ]"
 
 PLOT
-930
-370
-1130
-490
+1010
+430
+1210
+570
 salario mensual promedio
 mes
 $
 0.0
 10.0
 0.0
-10.0
+20000.0
 true
 false
-"" ""
+"" ";set-plot-y-range 0 20000"
 PENS
-"media" 1.0 0 -16777216 true "" "if paso_un_mes? and any? embarcaciones [ plotxy meses_transcurridos mean [salario_mensual] of embarcaciones ]"
+"media" 1.0 0 -16777216 true "" "if paso_un_mes? and any? embarcaciones [ plotxy meses_transcurridos (mean [salario_mensual] of embarcaciones) ]"
 "umbral" 1.0 0 -1069655 true "" "plotxy meses_transcurridos SALARIO_MIN_MENSUAL"
 "0" 1.0 0 -4539718 true "" "plotxy meses_transcurridos 0"
 
 SLIDER
-2095
-340
-2315
-373
+2610
+110
+2835
+143
 SALARIO_MIN_MENSUAL
 SALARIO_MIN_MENSUAL
 0
@@ -1222,40 +1614,40 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-1725
-30
-1875
-48
+1665
+15
+1815
+33
 PESCA
 12
 0.0
 1
 
 TEXTBOX
-1910
-30
-2060
-48
+1870
+20
+2020
+38
 ECOLOGIA
 12
 0.0
 1
 
 TEXTBOX
-2095
-245
-2245
-263
+2615
+15
+2765
+33
 JUGABILIDAD
 12
 0.0
 1
 
 SLIDER
-1535
-490
-1707
-523
+2325
+355
+2497
+388
 LONG_TIERRA
 LONG_TIERRA
 0
@@ -1267,20 +1659,20 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-1535
-465
-1685
-483
+2325
+330
+2475
+348
 PAISAJE
 12
 0.0
 1
 
 SLIDER
-10
-285
-240
-318
+5
+275
+235
+308
 LARGO_ZONA_PROTEGIDA
 LARGO_ZONA_PROTEGIDA
 0
@@ -1292,25 +1684,25 @@ NIL
 HORIZONTAL
 
 SLIDER
-10
-320
-240
-353
+5
+310
+235
+343
 ANCHO_ZONA_PROTEGIDA
 ANCHO_ZONA_PROTEGIDA
 0
-30
-0.0
+40
+40.0
 5
 1
 NIL
 HORIZONTAL
 
 SLIDER
-2090
-55
-2270
-88
+2325
+250
+2505
+283
 HORAS_ITERACION
 HORAS_ITERACION
 1
@@ -1322,10 +1714,10 @@ NIL
 HORIZONTAL
 
 SLIDER
-2090
-90
-2270
-123
+2325
+285
+2505
+318
 LONGITUD_CELDA
 LONGITUD_CELDA
 1
@@ -1337,23 +1729,23 @@ NIL
 HORIZONTAL
 
 TEXTBOX
-2090
-30
-2240
-48
+2325
+225
+2475
+243
 GLOBALES
 12
 0.0
 1
 
 SLIDER
-2095
-375
-2315
-408
+2610
+145
+2835
+178
 MAX_MESES_CRISIS_PESCA
 MAX_MESES_CRISIS_PESCA
-0
+1
 24
 12.0
 1
@@ -1362,10 +1754,10 @@ NIL
 HORIZONTAL
 
 SWITCH
-2095
-270
-2290
-303
+2610
+40
+2835
+73
 DETENER_SI_PIERDE?
 DETENER_SI_PIERDE?
 1
@@ -1373,10 +1765,10 @@ DETENER_SI_PIERDE?
 -1000
 
 SWITCH
-2095
-305
-2290
-338
+2610
+75
+2835
+108
 MOSTRAR_MENSAJES?
 MOSTRAR_MENSAJES?
 0
@@ -1384,10 +1776,10 @@ MOSTRAR_MENSAJES?
 -1000
 
 SLIDER
-2095
-445
-2360
-478
+2610
+215
+2835
+248
 PORCENTAJE_BIOMASA_CRISIS
 PORCENTAJE_BIOMASA_CRISIS
 0
@@ -1399,10 +1791,10 @@ PORCENTAJE_BIOMASA_CRISIS
 HORIZONTAL
 
 SLIDER
-2095
-480
-2360
-513
+2610
+250
+2835
+283
 PORCENTAJE_BIOMASA_COLAPSO
 PORCENTAJE_BIOMASA_COLAPSO
 0
@@ -1415,29 +1807,29 @@ HORIZONTAL
 
 TEXTBOX
 10
-30
+15
 160
-48
+33
 PESCA
 12
 0.0
 1
 
 TEXTBOX
-10
-260
-160
-278
+5
+250
+155
+268
 CONSERVACION
 12
 0.0
 1
 
 SWITCH
-2095
-410
-2315
-443
+2610
+180
+2835
+213
 INACTIVAR_PESCA_COLAPSO?
 INACTIVAR_PESCA_COLAPSO?
 0
@@ -1445,10 +1837,10 @@ INACTIVAR_PESCA_COLAPSO?
 -1000
 
 MONITOR
-1375
-20
-1550
-65
+1420
+10
+1580
+55
 NIL
 dias_pesca_sostenible
 17
@@ -1456,13 +1848,614 @@ dias_pesca_sostenible
 11
 
 MONITOR
-1375
-65
-1550
-110
+1420
+55
+1580
+100
 NIL
 dias_biomasa_sostenible
 17
+1
+11
+
+TEXTBOX
+10
+110
+160
+128
+PETROLEO
+12
+0.0
+1
+
+SLIDER
+5
+130
+235
+163
+NUMERO_PLATAFORMAS
+NUMERO_PLATAFORMAS
+0
+20
+0.0
+5
+1
+NIL
+HORIZONTAL
+
+SLIDER
+5
+165
+235
+198
+RADIO_RESTRICCION
+RADIO_RESTRICCION
+2
+6
+4.0
+1
+1
+pixeles
+HORIZONTAL
+
+SLIDER
+2040
+45
+2310
+78
+HIDROCARBURO_INICIAL
+HIDROCARBURO_INICIAL
+0
+20000
+20000.0
+100
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2040
+80
+2310
+113
+EXTRACCION_MAX_HIDROCARBURO
+EXTRACCION_MAX_HIDROCARBURO
+0
+100
+10.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2040
+115
+2310
+148
+TASA_DECLINACION_HIDROCARBURO
+TASA_DECLINACION_HIDROCARBURO
+0
+0.001
+0.001
+0.0001
+1
+NIL
+HORIZONTAL
+
+PLOT
+1215
+290
+1415
+430
+produccion total petroleo
+mes
+produccion
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"total" 1.0 0 -16777216 true "" "if paso_un_mes? [plotxy meses_transcurridos sum produccion_mes_hidrocarburo ]"
+
+SLIDER
+2040
+150
+2310
+183
+PROB_OCURRENCIA_DERRAME
+PROB_OCURRENCIA_DERRAME
+0
+1
+0.025
+0.001
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2040
+185
+2310
+218
+PROB_EXTENSION_DERRAME
+PROB_EXTENSION_DERRAME
+0
+1
+0.35
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2040
+220
+2310
+253
+PROB_MORTALIDAD_DERRAME
+PROB_MORTALIDAD_DERRAME
+0
+1
+0.5
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2040
+255
+2310
+288
+TIEMPO_DERRAMADO
+TIEMPO_DERRAMADO
+0
+100
+50.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+1420
+520
+1555
+565
+NIL
+numero_derrames
+17
+1
+11
+
+SLIDER
+2040
+290
+2310
+323
+COSTO_POR_CELDA_DERRAMADA
+COSTO_POR_CELDA_DERRAMADA
+0
+10000
+10000.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2040
+360
+2310
+393
+PRECIO_HIDROCARBURO
+PRECIO_HIDROCARBURO
+0
+10000
+10000.0
+100
+1
+NIL
+HORIZONTAL
+
+PLOT
+1215
+430
+1415
+570
+ganancia petroleo
+mes
+$ (millones)
+0.0
+10.0
+0.0
+1.0
+true
+false
+"" ""
+PENS
+"total" 1.0 0 -16777216 true "" "if paso_un_mes? [ plotxy meses_transcurridos sum ganancia_mes_hidrocarburo / 1000000 ]"
+"0" 1.0 0 -1069655 true "" "plotxy meses_transcurridos 0"
+
+SLIDER
+2040
+325
+2310
+358
+COSTO_OPERACION_PLATAFORMA
+COSTO_OPERACION_PLATAFORMA
+0
+1000
+1000.0
+100
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2610
+285
+2835
+318
+MAX_MESES_CRISIS_HIDROCARBURO
+MAX_MESES_CRISIS_HIDROCARBURO
+1
+24
+12.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+1420
+100
+1580
+145
+NIL
+dias_hidrocarburo_sostenible
+17
+1
+11
+
+TEXTBOX
+2045
+20
+2195
+38
+HIDROCARBURO
+12
+0.0
+1
+
+SWITCH
+2610
+320
+2835
+353
+INACTIVAR_HIDROCARBURO_COLAPSO?
+INACTIVAR_HIDROCARBURO_COLAPSO?
+0
+1
+-1000
+
+TEXTBOX
+2320
+20
+2470
+38
+TORTUGAS
+12
+0.0
+1
+
+SLIDER
+2320
+40
+2600
+73
+POB_INICIAL_TORTUGAS
+POB_INICIAL_TORTUGAS
+0
+1000
+150.0
+50
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2320
+110
+2600
+143
+CAPACIDAD_CARGA
+CAPACIDAD_CARGA
+1
+5
+2.0
+1
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2320
+75
+2600
+108
+NUM_DESCENDIENTES
+NUM_DESCENDIENTES
+0
+5
+1.0
+1
+1
+NIL
+HORIZONTAL
+
+PLOT
+1215
+150
+1415
+290
+población tortugas
+meses
+N
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"total" 1.0 0 -11085214 true "" "if paso_un_mes? [ plotxy meses_transcurridos (count tortugas) ]"
+"umbral crisis" 1.0 0 -723837 true "" "if paso_un_mes? [ plotxy meses_transcurridos (POB_INICIAL_TORTUGAS * PORCENTAJE_TORTUGAS_CRISIS / 100) ]"
+"umbral colapso" 1.0 0 -1069655 true "" "if paso_un_mes? [ plotxy meses_transcurridos (POB_INICIAL_TORTUGAS * PORCENTAJE_TORTUGAS_COLAPSO / 100) ]"
+
+SLIDER
+2320
+145
+2600
+178
+PROB_MORTALIDAD_TORTUGA_PESCA
+PROB_MORTALIDAD_TORTUGA_PESCA
+0
+1
+0.01
+0.01
+1
+NIL
+HORIZONTAL
+
+SLIDER
+2610
+355
+2835
+388
+PORCENTAJE_TORTUGAS_CRISIS
+PORCENTAJE_TORTUGAS_CRISIS
+0
+100
+50.0
+1
+1
+%
+HORIZONTAL
+
+SLIDER
+2610
+390
+2835
+423
+PORCENTAJE_TORTUGAS_COLAPSO
+PORCENTAJE_TORTUGAS_COLAPSO
+0
+100
+25.0
+1
+1
+%
+HORIZONTAL
+
+SLIDER
+2320
+180
+2600
+213
+PROB_MORTALIDAD_TORTUGA_DERRAME
+PROB_MORTALIDAD_TORTUGA_DERRAME
+0
+1
+0.15
+0.01
+1
+NIL
+HORIZONTAL
+
+MONITOR
+1420
+145
+1580
+190
+NIL
+dias_tortugas_sostenible
+17
+1
+11
+
+MONITOR
+1420
+570
+1545
+615
+numero de tortugas
+count tortugas
+0
+1
+11
+
+BUTTON
+510
+550
+667
+595
+NIL
+COLOREAR_CELDAS
+NIL
+1
+T
+OBSERVER
+NIL
+NIL
+NIL
+NIL
+1
+
+SLIDER
+5
+200
+235
+233
+SUBSIDIO_MENSUAL_GASOLINA
+SUBSIDIO_MENSUAL_GASOLINA
+0
+20000
+0.0
+5000
+1
+NIL
+HORIZONTAL
+
+PLOT
+2040
+410
+2240
+560
+saldo subsidio
+ticks
+saldo
+0.0
+10.0
+0.0
+10.0
+true
+false
+"" ""
+PENS
+"default" 1.0 0 -16777216 true "" "plot mean [saldo_subsidio_gas] of embarcaciones"
+
+CHOOSER
+1660
+540
+1852
+585
+TAMANIO_EMBARCACION
+TAMANIO_EMBARCACION
+"1 ton (3 tripulantes)" "3 ton (5 tripulantes)"
+0
+
+MONITOR
+1420
+380
+1560
+425
+biomasa
+sum [biomasa] of patches
+0
+1
+11
+
+MONITOR
+1420
+195
+1560
+240
+NIL
+captura_acumulada
+0
+1
+11
+
+MONITOR
+1420
+240
+1560
+285
+NIL
+ganancia_acumulada
+0
+1
+11
+
+MONITOR
+1420
+285
+1560
+330
+NIL
+distancia_recorrida_acumulada
+0
+1
+11
+
+MONITOR
+1420
+330
+1560
+375
+NIL
+gasto_gas_acumulado
+0
+1
+11
+
+MONITOR
+1420
+475
+1580
+520
+NIL
+ganancia_hidrocarburo_acumulada
+0
+1
+11
+
+MONITOR
+1420
+430
+1580
+475
+NIL
+produccion_hidrocarburo_acumulada
+0
+1
+11
+
+MONITOR
+30
+495
+140
+540
+area restringida
+count celdas_restriccion
+0
+1
+11
+
+MONITOR
+30
+540
+140
+585
+area protegida
+count celdas_protegido
+0
 1
 11
 
