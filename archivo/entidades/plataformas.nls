@@ -1,0 +1,89 @@
+breed [ plataformas plataforma ]
+
+plataformas-own [
+  produccion_dia          ;; number: cantidad de hidrocarburo producido en un día
+  ganancia_generada       ;; number: ganancia por la última producción de hidrocarburo que llego al puerto
+  stock                   ;; number: producción que se acumula en la plataforma
+  activo?                 ;; boolean: indica si la plataforma sigue activa
+  ganancia_mes_plataforma 
+  meses_negativos
+  tiempo_en_pausa
+]
+
+to init_plataformas
+  print "Inicializando plataformas..."
+  
+  let intentos_crear_mundo 1
+  let intentos_maximos 100
+  print (word "-> Intento " intentos_crear_mundo " de crear un mundo jugable.")
+  instalar_plataformas
+  while [ not todos_los_sitios_son_accesibles? and (intentos_crear_mundo <= intentos_maximos) ][
+    ask plataformas [ die ]
+    ask celdas_mar with [ zonificacion = "restriccion" ][ set zonificacion "libre" ]
+    instalar_plataformas
+    set intentos_crear_mundo intentos_crear_mundo + 1
+    print (word "-> Intento " intentos_crear_mundo " de crear un mundo jugable.")
+  ]
+  if intentos_crear_mundo > intentos_maximos [ 
+    user-message "Es difícil generar un mapa con los parámetros introducidos. /n Los mapas geneados no son jugables (los pescadores no se pueden mover en él). /n Intenta inicializar de nuevo el modelo y/o cambiar los parámetros del modelo."
+    stop
+  ]
+  actualizar_zonificacion
+  print "OK"
+end
+
+to instalar_plataformas 
+  ask n-of NUMERO_DE_PLATAFORMAS celdas_mar with [ num_region = REGION_DE_PLATAFORMAS and zonificacion = "libre" ][
+    instalar_plataforma
+  ]
+end
+
+to instalar_plataforma
+  sprout-plataformas 1 [
+    init_plataforma
+    ask celdas_mar at-points vecindad_moore RADIO_RESTRICCION_PLATAFORMAS true [ 
+      if zonificacion != "protegido" [
+        set zonificacion "restriccion"
+      ]
+    ]
+  ]
+end
+
+to init_plataforma
+  set shape "plataforma"
+  set color gray - 4
+  set produccion_dia 0
+  set ganancia_generada 0
+  set ganancia_mes_plataforma 0
+  set meses_negativos 0
+  set stock 0
+  set activo? true
+  set tiempo_en_pausa 0
+end
+
+to extraer_hidrocarburo   
+  if tiempo_en_pausa > 0 [ set tiempo_en_pausa tiempo_en_pausa - 1 ]
+  
+  ifelse activo? and tiempo_en_pausa <= 0 [
+    set produccion_dia min (list EXTRACCION_MAX_HIDROCARBURO (hidrocarburo * TASA_DECLINACION_HIDROCARBURO))
+;    set produccion_dia (hidrocarburo * TASA_DECLINACION_HIDROCARBURO)
+    set hidrocarburo hidrocarburo - produccion_dia
+  ][
+    set produccion_dia 0
+    set stock 0
+  ]
+  
+  set stock stock + produccion_dia
+end
+
+to actualizar_estado_plataformas
+  ifelse ganancia_mes_plataforma < 0 [
+    set meses_negativos meses_negativos + 1
+    if meses_negativos > MESES_PARA_COLAPSO_PLATAFORMA [
+      set activo? false
+      set color gray + 3
+    ]
+  ][
+    set meses_negativos 0
+  ]
+end

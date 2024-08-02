@@ -1,0 +1,125 @@
+patches-own [
+  _f                            ;; number: costo f del nodo
+  _parent                       ;; patch: celda previa en la ruta
+  transitable_embarcacion?      ;; boolean: indica si una celda es transitable o no para una embarcacion
+  transitable_buque?            ;; boolean: indica si una celda es transitable o no para un buque
+  
+  rutas_hacia_mi                ;; list (list (patches)): lista donde cada entrada es una lista con la ruta desde todos los puertos disponibles hacia mi
+  rutas_hacia_puertos           ;; list (list (patches)): lista donde cada entrada es una lista con la ruta desde mi hacia todos los puertos disponibles
+]
+
+to init_A_star_pathfinder
+  print "Inicializando A* pathfinder..."
+  ask patches [
+    set _parent nobody
+    set _f 0
+  ]
+  print "OK"
+end
+
+to actualizar_transitables_embarcaciones
+  ;; se define que celdas serán transitables para las embarcaciones
+  ask patches [ set transitable_embarcacion? false ]
+  ask patches with [ zonificacion = "libre" or zonificacion = "protegido" or tipo = "puerto" ][ set transitable_embarcacion? true ]
+end
+
+to actualizar_transitables_buques
+  ;; se definen que celdas serán transitables para los buques
+  ask patches [ set transitable_buque? false ]
+  ask patches with [ zonificacion = "libre" or zonificacion = "restriccion" or tipo = "puerto" ][ set transitable_buque? true ]
+end
+
+to-report obtener_ruta_A_star_embarcacion [inicio final] 
+  let _open (patch-set inicio)
+  let _closed nobody
+  
+  while [count _open != 0][
+    let _current min-one-of _open [_f]
+    set _closed (patch-set _closed _current)
+    
+    if _current = final [ report reconstruir_ruta_A_star inicio final ]
+    
+    set _open _open with [not member? self (patch-set _current)]
+    
+    ask _current [
+      ask neighbors with [transitable_embarcacion?][
+        if member? self _closed [stop]
+        let _tentative_g_cost ([ _g_cost inicio ] of myself) + distance myself
+        if _tentative_g_cost < _g_cost inicio or not member? self _open [
+          set _f _tentative_g_cost + _h_cost final
+          set _parent _current
+          set _open (patch-set _open self)
+        ]
+      ]
+    ]
+  ]   
+end
+
+to-report obtener_ruta_A_star_buque [inicio final] 
+  let _open (patch-set inicio)
+  let _closed nobody
+  
+  while [count _open != 0][
+    let _current min-one-of _open [_f]
+    set _closed (patch-set _closed _current)
+    
+    if _current = final [ report reconstruir_ruta_A_star inicio final ]
+    
+    set _open _open with [not member? self (patch-set _current)]
+    
+    ask _current [
+      ask neighbors with [transitable_buque?][
+        if member? self _closed [stop]
+        let _tentative_g_cost ([ _g_cost inicio ] of myself) + distance myself
+        if _tentative_g_cost < _g_cost inicio or not member? self _open [
+          set _f _tentative_g_cost + _h_cost final
+          set _parent _current
+          set _open (patch-set _open self)
+        ]
+      ]
+    ]
+  ]   
+end
+
+to-report _g_cost [inicio]
+  report distance inicio
+end
+
+to-report _h_cost [final]
+  report distance final
+end
+
+
+to-report reconstruir_ruta_A_star [inicio final]
+  let _celda_actual final
+  let _ruta (list _celda_actual)
+
+  while [_celda_actual != inicio] [
+    let _padre_celda_actual [_parent] of _celda_actual
+    ask _celda_actual [
+      set _ruta fput _parent _ruta
+    ]
+    set _celda_actual _padre_celda_actual
+  ]
+  report _ruta
+end
+
+;; para ejecutar más rápido el modelo se calculan las rutas de y hacia todas las
+;; celdas transitables al inicializar el modelo.
+to init_rutas
+  print "Calculando rutas..."
+  ask patches [ 
+    set rutas_hacia_mi []
+    set rutas_hacia_puertos []
+  ]
+  actualizar_transitables_embarcaciones
+  let _regiones_pesca remove-duplicates [region_pesca] of embarcaciones
+  foreach sort puertos [
+    p ->
+    ask patches with [transitable_embarcacion? and member? num_region _regiones_pesca] [
+      set rutas_hacia_mi lput (obtener_ruta_A_star_embarcacion [patch-here] of p self) rutas_hacia_mi
+      set rutas_hacia_puertos lput (obtener_ruta_A_star_embarcacion self [patch-here] of p) rutas_hacia_puertos
+    ]
+  ]
+  print "OK"
+end

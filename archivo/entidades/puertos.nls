@@ -1,0 +1,71 @@
+breed [ puertos puerto ]
+
+puertos-own [
+  num_puerto                       ;; number: identificador del puerto
+  num_embarcaciones
+  capturas_dia_puerto              ;; list (number): lista con todas las capturas en un dia de las embarcaciones que llegan a un puerto
+  ganancias_dia_puerto             ;; list (number): lista con todas las ganancias en un día de las embarcaciones que llegan a un puerto
+  horas_en_mar_dia_puerto          ;; list (number): lista con todas las horas en el mar en un día de las embarcaciones que llegan a un puerto
+  ganancias_por_hora_dia_puerto    ;; list (number): lista con todas las ganancias por hora en un dia de las embarcaciones que llegan a un puerto
+  gastos_gasolina_dia_puerto       ;; list (number): lista con todos los gastos de gasolina en un dia de las embarcaciones que llegan a un puerto
+  distancias_recorridas_dia_puerto ;; list (number): lista con todas las distancias recorridas por las embarcaciones que llegan a un puerto en un día
+  viajes_finalizados_dia_puerto    ;; number: número de viajes que se registran como finalizados al día
+  
+  capturas_mes_puerto              ;; list (number): lista con todas las capturas en un mes de las embarcaciones que llegan a un puerto
+  ganancias_mes_puerto             ;; list (number): lista con todas las ganancias en un mes de las embarcaciones que llegan a un puerto
+  horas_en_mar_mes_puerto          ;; list (number): lista con todas las horas en el mar en un mes de las embarcaciones que llegan a un puerto
+  ganancias_por_hora_mes_puerto    ;; list (number): lista con todas las ganancias por hora en un mes de las embarcaciones que llegan a un puerto
+  gastos_gasolina_mes_puerto       ;; list (number): lista con todos los gastos de gasolina en un mes de las embarcaciones que llegan a un puerto
+  distancias_recorridas_mes_puerto ;; list (number): lista con todas las distancias recorridas por las embarcaciones que llegan a un puerto en un mes
+  viajes_finalizados_mes_puerto    ;; number: número de viajes que se registran como finalizados al mes
+]
+
+to init_puerto
+  set num_puerto -999
+  set shape "ancla" 
+  set size 1.5
+  set color black
+  reset_registros_diarios_puerto
+  reset_registros_mensuales_puerto
+end
+
+;; Inicialización de los puertos
+to init_puertos
+  print "Inicializando puertos..."
+  let sep world-height / (NUM_PUERTOS + 1)
+  let pos_y min-pycor + sep
+  
+  foreach (range NUM_PUERTOS) [
+    p ->
+    create-puertos 1 [
+      init_puerto
+      set num_puerto p
+      set num_embarcaciones 0
+      setxy ( max-pxcor - LONG_TIERRA + 1 ) pos_y
+      set tipo "puerto"
+    ]
+    set pos_y pos_y + sep
+  ]
+  print "OK"
+end
+
+to reset_registros_diarios_puerto
+  set capturas_dia_puerto []
+  set ganancias_dia_puerto []
+  set horas_en_mar_dia_puerto []
+  set ganancias_por_hora_dia_puerto []
+  set gastos_gasolina_dia_puerto []
+  set distancias_recorridas_dia_puerto []
+  set viajes_finalizados_dia_puerto 0
+end
+
+to reset_registros_mensuales_puerto  
+    
+  set capturas_mes_puerto []
+  set ganancias_mes_puerto []
+  set horas_en_mar_mes_puerto []
+  set ganancias_por_hora_mes_puerto []
+  set gastos_gasolina_mes_puerto []
+  set distancias_recorridas_mes_puerto []
+  set viajes_finalizados_mes_puerto 0
+end 

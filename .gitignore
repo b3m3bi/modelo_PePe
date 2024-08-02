@@ -1,6 +1,7 @@
 *.ods
 *.csv
 *.tmp.nlogo
+*.org#
 
 ltximg/
 calibracion/figs/

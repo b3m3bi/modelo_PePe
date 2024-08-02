@@ -1,0 +1,45 @@
+extensions [ 
+  time
+]
+
+globals [
+  fecha                         ;; logotime: objeto que almacena la fecha en la que va la simulación (time extension)
+  fecha_inicio                  ;; string: fecha inicial de la simulación en formato de fecha (time extension)
+  colores_puertos_embarcaciones ;; list: lista con los colores que pueden tener los puertos y embarcaciones
+  horas_iteracion               ;; number: horas que representa un tick. Esta variable solo puede tomar valores que generen un "x mod 24 = 0" (e.g., 1, 2, 3, 4, 6, 8, 12, 24)
+  longitud_celda                ;; number: longitud y ancho de una celda del mapa (en km)  
+  dias                          ;; number: número de días que han pasado en la simulación
+  ano                           ;; number: número de años que han pasado en la simulación
+]
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;; PROCEDIMIENTOS INICIALIZACION ;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Inicializa variables que utilizan otros procesos de inicialización
+;; por lo que es importante ejecutarlo antes que todos los demás 
+;; (no necesariamente antes que las variables de la interfaz)
+to init_globales
+  print "Inicializando globales..."
+  set fecha_inicio time:create "2024-01-01 00:00:00.000"
+  set fecha fecha_inicio
+  set dias 0
+  set ano 0
+  set colores_puertos_embarcaciones [ pink violet blue ]
+  set horas_iteracion 24
+  set longitud_celda 3
+  print "OK"
+end
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+;;;;;;;;;;;;; PROCEDIMIENTOS EJECUTAR ;;;;;;;;;;;;;
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+;; Actualiza la fecha de la simulación
+to actualizar_fecha
+  set fecha time:plus fecha horas_iteracion "hours"
+  if time:get "hour" fecha = 0 [
+    set dias dias + 1
+  ]
+  if paso_un_ano? [ set ano ano + 1 ]
+end

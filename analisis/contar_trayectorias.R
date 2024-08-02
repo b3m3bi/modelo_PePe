@@ -70,3 +70,6 @@ ggplot(data_final_trayectorias,
     scale_fill_ucscgb()
     ## scale_fill_brewer(palette = "RdYlBu")
 
+ggsave("trayectorias.png",
+       dpi = 300)
+       
