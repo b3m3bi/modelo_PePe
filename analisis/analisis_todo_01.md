@@ -191,3 +191,7 @@ de zona protegida disminuyen el salario.
 ![plot of chunk unnamed-chunk-16](figure/unnamed-chunk-16-1.png)
 ![plot of chunk unnamed-chunk-17](figure/unnamed-chunk-17-1.png)
 
+## Trayectorias de juego
+
+![plot of chunk unnamed-chunk-18](figure/unnamed-chunk-18-1.png)
+
