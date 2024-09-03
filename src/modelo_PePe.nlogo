@@ -45,6 +45,7 @@ globals [
   capturas_mensuales_promedio_periodo
   distancias_recorridas_mensuales_promedio_periodo
   ingresos_mensuales_promedio_periodo
+  tortugas_periodo
 
   ;; union-find
   etiquetas
@@ -153,8 +154,8 @@ to INICIALIZAR
   init_plataformas
   init_embarcaciones
   init_rutas
-  init_registros
   init_tortugas
+  init_registros
   init_indicadores
   init_visualizacion
 
@@ -239,12 +240,12 @@ to init_registros
   ifelse count embarcaciones > 0 [
     set ingresos_mensuales_promedio_periodo (list mean [ingreso_mensual] of embarcaciones )
   ][
-    set ingresos_mensuales_promedio_periodo [ ]
+    set ingresos_mensuales_promedio_periodo []
   ]
-
 
   set produccion_mes_hidrocarburo []
   set ganancia_mes_hidrocarburo []
+  set tortugas_periodo (list count tortugas)
 end
 
 to init_paisaje
@@ -841,11 +842,16 @@ to actualizar_registros_periodo
   if length ingresos_mensuales_promedio_periodo > MESES_PROMEDIAR_REGISTROS_PESCA [
     set ingresos_mensuales_promedio_periodo but-first ingresos_mensuales_promedio_periodo
   ]
-    if length distancias_recorridas_mensuales_promedio_periodo > MESES_PROMEDIAR_REGISTROS_PESCA [
+  if length distancias_recorridas_mensuales_promedio_periodo > MESES_PROMEDIAR_REGISTROS_PESCA [
     set distancias_recorridas_mensuales_promedio_periodo but-first distancias_recorridas_mensuales_promedio_periodo
   ]
   if length capturas_mensuales_promedio_periodo > MESES_PROMEDIAR_REGISTROS_PESCA [
     set capturas_mensuales_promedio_periodo but-first capturas_mensuales_promedio_periodo
+  ]
+
+  set tortugas_periodo lput (count tortugas) tortugas_periodo
+  if length tortugas_periodo > MESES_PROMEDIAR_REGISTROS_TORTUGAS [
+    set tortugas_periodo but-first tortugas_periodo
   ]
 end
 
@@ -1299,6 +1305,24 @@ to-report agregar-ceros [ cadena numero-ceros ]
   ]
   report agregar-ceros ( insert-item 0 cadena "0" ) numero-ceros
 end
+
+to-report captura_mensual_promedio_periodo
+  ifelse capturas_mensuales_promedio_periodo != []
+  [ report mean capturas_mensuales_promedio_periodo ]
+  [ report 0 ]
+end
+
+to-report ingreso_mensual_promedio_periodo
+  ifelse ingresos_mensuales_promedio_periodo != []
+  [ report mean ingresos_mensuales_promedio_periodo ]
+  [ report 0 ]
+end
+
+to-report distancia_recorrida_mensual_promedio_periodo
+  ifelse distancias_recorridas_mensuales_promedio_periodo != []
+  [ report mean distancias_recorridas_mensuales_promedio_periodo ]
+  [ report 0 ]
+end
 @#$#@#$#@
 GRAPHICS-WINDOW
 240
@@ -1380,7 +1404,7 @@ NUMERO_EMBARCACIONES
 NUMERO_EMBARCACIONES
 0
 300
-300.0
+100.0
 50
 1
 NIL
@@ -1478,7 +1502,7 @@ false
 "set-plot-y-range 0 1500" "set-plot-y-range 0 1500"
 PENS
 "media mensual" 1.0 0 -5325092 true "" "if paso_un_mes? [ plotxy meses_transcurridos sum capturas_mes ]"
-"media periodo" 1.0 0 -13345367 true "" "if paso_un_mes? [ ifelse capturas_mensuales_promedio_periodo != [] [ plotxy meses_transcurridos mean capturas_mensuales_promedio_periodo ][ plotxy meses_transcurridos 0 ]]"
+"media periodo" 1.0 0 -13345367 true "" "if paso_un_mes? [ plotxy meses_transcurridos captura_mensual_promedio_periodo ]"
 
 PLOT
 3025
@@ -1782,7 +1806,7 @@ PENS
 "media mes" 1.0 0 -5516827 true "" "if paso_un_mes? and any? embarcaciones [ plotxy meses_transcurridos (mean [ingreso_mensual] of embarcaciones) ]"
 "ingreso_minimo" 1.0 0 -1604481 true "" "plotxy meses_transcurridos INGRESO_MENSUAL_MINIMO"
 "0" 1.0 0 -4539718 true "" "plotxy meses_transcurridos 0"
-"media periodo" 1.0 0 -13345367 true "" "if paso_un_mes? and any? embarcaciones [ plotxy meses_transcurridos mean ingresos_mensuales_promedio_periodo]"
+"media periodo" 1.0 0 -13345367 true "" "if paso_un_mes? [ plotxy meses_transcurridos ingreso_mensual_promedio_periodo]"
 "ingreso_aletra" 1.0 0 -723837 true "" "plotxy meses_transcurridos INGRESO_MENSUAL_ALERTA"
 
 SLIDER
@@ -1832,9 +1856,9 @@ JUGABILIDAD
 
 SLIDER
 2455
-405
+420
 2670
-438
+453
 LONG_TIERRA
 LONG_TIERRA
 0
@@ -1847,9 +1871,9 @@ HORIZONTAL
 
 TEXTBOX
 2455
-380
+395
 2605
-398
+413
 PAISAJE
 12
 0.0
@@ -1857,9 +1881,9 @@ PAISAJE
 
 SLIDER
 2455
-440
+455
 2670
-473
+488
 ANCHO_ZONA_PROTEGIDA
 ANCHO_ZONA_PROTEGIDA
 0
@@ -1872,9 +1896,9 @@ HORIZONTAL
 
 SLIDER
 2455
-300
+320
 2635
-333
+353
 HORAS_ITERACION
 HORAS_ITERACION
 1
@@ -1887,9 +1911,9 @@ HORIZONTAL
 
 SLIDER
 2455
-335
+355
 2635
-368
+388
 LONGITUD_CELDA
 LONGITUD_CELDA
 1
@@ -1902,9 +1926,9 @@ HORIZONTAL
 
 TEXTBOX
 2455
-275
+295
 2605
-293
+313
 GLOBALES
 12
 0.0
@@ -1917,7 +1941,7 @@ SWITCH
 73
 DETENER_SI_PIERDE?
 DETENER_SI_PIERDE?
-0
+1
 1
 -1000
 
@@ -2012,7 +2036,7 @@ NUMERO_PLATAFORMAS
 NUMERO_PLATAFORMAS
 0
 20
-0.0
+10.0
 5
 1
 NIL
@@ -2263,9 +2287,10 @@ true
 false
 "set-plot-y-range 0 500" ""
 PENS
-"total" 1.0 0 -10899396 true "" "if paso_un_mes? [ plotxy meses_transcurridos (count tortugas) ]"
+"total" 1.0 0 -2754856 true "" "if paso_un_mes? [ plotxy meses_transcurridos (count tortugas) ]"
 "umbral crisis" 1.0 0 -723837 true "" "if paso_un_mes? [ plotxy meses_transcurridos (POB_INICIAL_TORTUGAS * PORCENTAJE_TORTUGAS_CRISIS / 100) ]"
 "umbral colapso" 1.0 0 -1069655 true "" "if paso_un_mes? [ plotxy meses_transcurridos (POB_INICIAL_TORTUGAS * PORCENTAJE_TORTUGAS_COLAPSO / 100) ]"
+"promedio periodo" 1.0 0 -10899396 true "" "if paso_un_mes? [ plotxy meses_transcurridos mean tortugas_periodo ]"
 
 SLIDER
 2450
@@ -2333,7 +2358,7 @@ MONITOR
 1445
 79
 tortugas
-count tortugas
+mean tortugas_periodo
 0
 1
 12
@@ -2387,7 +2412,7 @@ MONITOR
 825
 79
 ton
-mean capturas_mensuales_promedio_periodo
+captura_mensual_promedio_periodo
 0
 1
 12
@@ -2409,8 +2434,8 @@ MONITOR
 1055
 79
 km
-mean distancias_recorridas_mensuales_promedio_periodo
-2
+distancia_recorrida_mensual_promedio_periodo
+0
 1
 12
 
@@ -2561,8 +2586,8 @@ MONITOR
 940
 79
 $
-mean ingresos_mensuales_promedio_periodo
-2
+ingreso_mensual_promedio_periodo
+0
 1
 12
 
@@ -2623,7 +2648,7 @@ false
 "set-plot-y-range 0 70" "set-plot-y-range 0 70"
 PENS
 "media" 1.0 0 -5325092 true "" "if paso_un_mes? [ ifelse distancias_recorridas_mes != [] [ plotxy meses_transcurridos mean distancias_recorridas_mes ][ plotxy meses_transcurridos 0 ]]"
-"media periodos" 1.0 0 -13345367 true "" "if paso_un_mes? [ ifelse distancias_recorridas_mensuales_promedio_periodo != [] [ plotxy meses_transcurridos mean distancias_recorridas_mensuales_promedio_periodo ][plotxy meses_transcurridos 0 ]]"
+"media periodos" 1.0 0 -13345367 true "" "if paso_un_mes? [ plotxy meses_transcurridos distancia_recorrida_mensual_promedio_periodo]"
 
 PLOT
 1265
@@ -2685,7 +2710,7 @@ CHOOSER
 RONDA
 RONDA
 "Ronda 1 (Pesca)" "Ronda 2 (Petróleo)" "Ronda 3 (Conservación)" "Ronda 4 (Manejo sectorial)" "Ronda 5 (Co-manejo)" "NA"
-0
+2
 
 TEXTBOX
 445
@@ -2706,7 +2731,7 @@ PORCENTAJE_ANP
 PORCENTAJE_ANP
 0
 50
-0.0
+30.0
 10
 1
 %
@@ -2796,9 +2821,9 @@ HORIZONTAL
 
 SLIDER
 2450
-220
+215
 2622
-253
+248
 MIN_CAP_CARGA
 MIN_CAP_CARGA
 0
@@ -2897,6 +2922,21 @@ false
 "" ""
 PENS
 "default" 1.0 0 -16777216 true "" "if [saldo_subsidio_gas] of embarcaciones != [] [plot mean [ saldo_subsidio_gas ] of embarcaciones]"
+
+SLIDER
+2450
+250
+2730
+283
+MESES_PROMEDIAR_REGISTROS_TORTUGAS
+MESES_PROMEDIAR_REGISTROS_TORTUGAS
+0
+24
+12.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -3749,6 +3789,259 @@ file-close</postRun>
     <enumeratedValueSet variable="PORCENTAJE_ANP">
       <value value="0"/>
       <value value="20"/>
+    </enumeratedValueSet>
+  </experiment>
+  <experiment name="analisis_escenarios_01" repetitions="10" runMetricsEveryStep="false">
+    <setup>INICIALIZAR</setup>
+    <go>EJECUTAR</go>
+    <postRun>file-open (word  "../analisis/data/" behaviorspace-experiment-name ".txt" )
+file-write behaviorspace-run-number
+ask plataformas
+[ file-write (list xcor ycor) ]
+file-print ""
+file-close</postRun>
+    <timeLimit steps="7200"/>
+    <metric>dias_transcurridos</metric>
+    <metric>meses_transcurridos</metric>
+    <metric>anos_transcurridos</metric>
+    <metric>sum capturas_mes</metric>
+    <metric>captura_acumulada</metric>
+    <metric>captura_mensual_promedio_periodo</metric>
+    <metric>num_viajes_mes</metric>
+    <metric>num_viajes_acumulado</metric>
+    <metric>sum distancias_recorridas_mes</metric>
+    <metric>distancia_recorrida_acumulada</metric>
+    <metric>distancia_recorrida_mensual_promedio_periodo</metric>
+    <metric>sum horas_en_mar_mes</metric>
+    <metric>horas_en_mar_acumuladas</metric>
+    <metric>sum gasto_gas_mes</metric>
+    <metric>gasto_gas_acumulado</metric>
+    <metric>sum ganancias_mes</metric>
+    <metric>ganancia_acumulada</metric>
+    <metric>(mean [ingreso_mensual] of embarcaciones)</metric>
+    <metric>ingreso_mensual_promedio_periodo</metric>
+    <metric>sum [biomasa] of patches</metric>
+    <metric>count tortugas</metric>
+    <metric>sum produccion_mes_hidrocarburo</metric>
+    <metric>produccion_hidrocarburo_acumulada</metric>
+    <metric>sum ganancia_mes_hidrocarburo</metric>
+    <metric>ganancia_hidrocarburo_acumulada</metric>
+    <metric>numero_derrames</metric>
+    <metric>dias_pesca_sostenible</metric>
+    <metric>dias_biomasa_sostenible</metric>
+    <metric>dias_hidrocarburo_sostenible</metric>
+    <metric>dias_tortugas_sostenible</metric>
+    <metric>count celdas_restriccion</metric>
+    <metric>count celdas_protegido</metric>
+    <runMetricsCondition>(ticks mod (24 * 30 / HORAS_ITERACION)) = 0</runMetricsCondition>
+    <enumeratedValueSet variable="NUMERO_EMBARCACIONES">
+      <value value="50"/>
+      <value value="100"/>
+      <value value="150"/>
+      <value value="200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUMERO_PLATAFORMAS">
+      <value value="0"/>
+      <value value="5"/>
+      <value value="10"/>
+      <value value="15"/>
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PORCENTAJE_ANP">
+      <value value="0"/>
+      <value value="10"/>
+      <value value="20"/>
+      <value value="30"/>
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="RADIO_EXPLORAR">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VARIANZA_PRECIO_HIDROCARBURO">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="K">
+      <value value="80"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PRECIO_LITRO_GAS">
+      <value value="60"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="DETENER_SIMULACION?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="RUTA_IMGS">
+      <value value="&quot;/home/lggj/PARA/proyectos/PePe_ecosur/figuras/animaciones/tortugas&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="M">
+      <value value="5.0E-5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="COSTO_POR_CELDA_DERRAMADA">
+      <value value="10000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LONG_TIERRA">
+      <value value="6"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PROCENTAJE_GANANCIA_MINIMA_HIDROCARBURO">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUM_TRIPULANTES">
+      <value value="3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="OBJETIVO_MIN_PRODUCCION_HIDROCARBURO">
+      <value value="25000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="TICKS_EXPORTAR">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="CAPTURABILIDAD">
+      <value value="0.002"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="INGRESO_MENSUAL_ALERTA">
+      <value value="9000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PROB_EXPLORAR">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PROB_MORTALIDAD_TORTUGA_PESCA">
+      <value value="0.003"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="CENTRO_MAX_PROB_PLATAFORMAS">
+      <value value="34"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ANCHO_ZONA_PROTEGIDA">
+      <value value="19"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="INACTIVAR_HIDROCARBURO_COLAPSO?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PROB_MORTALIDAD_DERRAME">
+      <value value="0.75"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUM_AMIGOS">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="DETENER_SI_PIERDE?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="HIDROCARBURO_INICIAL">
+      <value value="3126954.346"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="COSTO_OPERACION_PLATAFORMA">
+      <value value="10000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="HORAS_ITERACION">
+      <value value="24"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MESES_PROMEDIAR_REGISTROS_PESCA">
+      <value value="12"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="DIAS_MAXIMOS_EN_MAR">
+      <value value="5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="TASA_DECLINACION_HIDROCARBURO">
+      <value value="3.198E-4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PORCENTAJE_TORTUGAS_CRISIS">
+      <value value="75"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="TIEMPO_DERRAMADO">
+      <value value="50"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="R">
+      <value value="0.9"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="POB_INICIAL_TORTUGAS">
+      <value value="200"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="HORAS_DESCANSAR">
+      <value value="12"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MAX_VIAJES_MES">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PRECIO_HIDROCARBURO">
+      <value value="100"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="RONDA">
+      <value value="&quot;NA&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="RADIO_PROB_PLATAFORMAS">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="CAPACIDAD_MAXIMA">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ANOS_MAX_SIMULACION">
+      <value value="20"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="EXPORTAR_IMAGEN?">
+      <value value="false"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="INGRESO_MENSUAL_MINIMO">
+      <value value="7500"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="INACTIVAR_PESCA_COLAPSO?">
+      <value value="true"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PROB_EXPLORAR_TODO">
+      <value value="0.3"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PROB_MORTALIDAD_TORTUGA_DERRAME">
+      <value value="0.17"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="ANO_ADVERTENCIA_OBJETIVO_HIDROCARBURO">
+      <value value="10"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PROB_EXTENSION_DERRAME">
+      <value value="0.35"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LITROS_POR_DISTANCIA">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PRECIO_BIOMASA">
+      <value value="10000"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MIN_CAP_CARGA">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PORCENTAJE_BIOMASA_COLAPSO">
+      <value value="40"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PORCENTAJE_TORTUGAS_COLAPSO">
+      <value value="30"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="SUBSIDIO_MENSUAL_GASOLINA">
+      <value value="0"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LITROS_POR_HORA_PESCA">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="NUM_DESCENDIENTES">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="LONGITUD_CELDA">
+      <value value="1"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="RADIO_RESTRICCION">
+      <value value="2"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PORCENTAJE_BIOMASA_CRISIS">
+      <value value="60"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="COLOREAR_POR">
+      <value value="&quot;biomasa y derrames&quot;"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="VELOCIDAD">
+      <value value="0.5"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="PROB_OCURRENCIA_DERRAME">
+      <value value="0.025"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MAX_CAP_CARGA">
+      <value value="4"/>
+    </enumeratedValueSet>
+    <enumeratedValueSet variable="MOSTRAR_MENSAJES?">
+      <value value="false"/>
     </enumeratedValueSet>
   </experiment>
 </experiments>

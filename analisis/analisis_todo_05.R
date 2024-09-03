@@ -183,7 +183,7 @@ graficar_serie_tiempo(data_mean_series,
                       "sum_biomasa_of_patches",
                       "Biomasa (ton)",
                       "Biomasa total") +
-    geom_hline(yintercept = 0.25 * 40 * 40 * 50, color = "black", linetype = 3)
+    geom_hline(yintercept = 0.4 * 40 * 40 * 80, color = "black", linetype = 3)
 
 #' ### Número de viajes
 #'
