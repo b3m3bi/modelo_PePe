@@ -1,10 +1,13 @@
-# Modelo PePe
+# MARE (Marine Agents Reordering Evaluations)
 
 
 ![Static Badge](https://img.shields.io/badge/NetLogo-red)
 
 
-Este es el código del modelo PePe, un modelo basado en agentes adaptado para ser utilizado como un juego serio, para explorar la coexistencia de la industria pesquera, la industria petrolera y el sector conservación en la Sonda de Campeche, México.
+Este es el código del juego MARE (Marine Agents Reordering Evaluations), un modelo basado en agentes adaptado para ser utilizado como un juego serio, para explorar la coexistencia de la industria pesquera, la industria petrolera y el sector conservación en la Sonda de Campeche, México.
+
+![Intefaz del modelo](./imgs/modelo_PePe_interface.png)
+
 
 ## Requerimientos
 
@@ -33,3 +36,4 @@ Este repositorio se organiza de la siguiente manera:
 - [`docs`](./docs): documentación del modelo
 - [`src`](./src): código del modelo
 - [`calibracion`](./calibracion): experimentos para la calibración del modelo
+- [`analisis`](./analisis): análisis del modelo

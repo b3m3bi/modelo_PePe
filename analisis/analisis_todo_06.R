@@ -11,7 +11,10 @@ knitr::opts_chunk$set(echo = FALSE,
                       warning = FALSE)
 
 #+ import_data, include = FALSE
-data <- read_csv("data/modelo_PePe analisis_escenarios_01-table.csv", skip = 6)
+data <- read_csv("data/modelo_PePe analisis_escenarios_01-table.csv", skip=6)
+data2 <- read_csv("data/modelo_PePe analisis_125_embarcaciones-table.csv", skip=6)
+
+data <- bind_rows(data,data2)
 
 data <-
     data %>%
@@ -25,8 +28,7 @@ data <-
            gasto_gas_viaje =
                sum_gasto_gas_mes / num_viajes_mes,
            ganancia_viaje =
-               sum_ganancias_mes / num_viajes_mes) %>%
-    
+               sum_ganancias_mes / num_viajes_mes) %>%    
     mutate_all(~replace(., is.nan(.), 0))
 
 #' ## Series de tiempo
@@ -148,19 +150,19 @@ graficar_serie_tiempo_num_emb(data_mean_series,
                       "sum_biomasa_of_patches",
                       "Biomasa (ton)",
                       "Biomasa total") +
-    geom_hline(yintercept = 0.25 * 40 * 40 * 50, color = "black", linetype = 3)
+    geom_hline(yintercept = 0.40 * 40 * 40 * 80, color = "black", linetype = 3)
 
 graficar_serie_tiempo_num_plat(data_mean_series,
                       "sum_biomasa_of_patches",
                       "Biomasa (ton)",
                       "Biomasa total") +
-    geom_hline(yintercept = 0.25 * 40 * 40 * 50, color = "black", linetype = 3)
+    geom_hline(yintercept = 0.40 * 40 * 40 * 80, color = "black", linetype = 3)
 
 graficar_serie_tiempo_por_anp(data_mean_series,
                       "sum_biomasa_of_patches",
                       "Biomasa (ton)",
                       "Biomasa total") +
-    geom_hline(yintercept = 0.25 * 40 * 40 * 50, color = "black", linetype = 3)
+    geom_hline(yintercept = 0.40 * 40 * 40 * 80, color = "black", linetype = 3)
 
 
 #' ### Número de viajes
